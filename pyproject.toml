@@ -1,0 +1,41 @@
+[project]
+name = "windowsmcp-custom"
+version = "0.1.0"
+description = "Confined Windows MCP server with virtual display isolation for AI agents."
+requires-python = ">=3.12"
+dependencies = [
+    "click>=8.2.0",
+    "comtypes>=1.4.15",
+    "dxcam>=0.3.0",
+    "fastmcp>=3.0",
+    "mss>=9.0.0",
+    "pillow>=11.0.0",
+    "psutil>=7.0.0",
+    "pywin32>=311",
+    "thefuzz>=0.22.1",
+]
+
+[project.optional-dependencies]
+ui = ["PyQt6>=6.6.0"]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.9.0",
+]
+
+[project.scripts]
+windowsmcp-custom = "windowsmcp_custom.__main__:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
