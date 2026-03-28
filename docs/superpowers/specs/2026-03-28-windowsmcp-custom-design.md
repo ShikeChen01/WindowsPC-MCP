@@ -44,8 +44,8 @@ A custom MCP server that creates a **virtual screen** (via virtual display drive
 │  │  │            │ │ • coord xlate  │ │ Click    (w:agent) │ │ │
 │  │  │ • create   │ │ • shortcut     │ │ Type     (w:agent) │ │ │
 │  │  │ • destroy  │ │   filter       │ │ App      (w:agent) │ │ │
-│  │  │ • config   │ │ • pop-up       │ │ PowerShell (none)  │ │ │
-│  │  │ • enum     │ │   detection    │ │ FileSystem (none)  │ │ │
+│  │  │ • config   │ │ • pop-up       │ │ PowerShell (unconf)│ │ │
+│  │  │ • enum     │ │   detection    │ │ FileSystem (unconf)│ │ │
 │  │  └────────────┘ └────────────────┘ └────────────────────┘ │ │
 │  │                                                           │ │
 │  │  stdio/SSE  ◄───────────────────────►  Claude / LLM      │ │
@@ -83,7 +83,7 @@ Claude sends tool call
 │  2. Classify tool action:                            │
 │     READ  → screenshot, snapshot → allow all screens │
 │     WRITE → click, type, move, scroll → check bounds │
-│     NONE  → powershell, filesystem → pass through    │
+│     UNCONFINED → powershell, filesystem → pass thru  │
 │                                                      │
 │  3. For WRITE actions, validate:                     │
 │     • Absolute coords must be within agent bounds    │
@@ -119,7 +119,7 @@ Claude sends tool call
 | **MultiSelect** | — | agent only | Multiple clicks/selections. Each coordinate validated against agent bounds. |
 | **MultiEdit** | — | agent only | Fill multiple inputs. Each target element must be on agent screen. |
 | **Notification** | — | yes | Send Windows toast notifications. No confinement — screen-independent. |
-| **Scrape** | yes | — | Fetch web content or browser DOM. No confinement — screen-independent. |
+| **Scrape** | yes | — | Fetch web content from URLs. No confinement — screen-independent. No browser DOM extraction. |
 | **PowerShell** | yes | yes | No confinement — screen-independent. |
 | **FileSystem** | yes | yes | No confinement — screen-independent. |
 | **Clipboard** | yes | yes | Shared clipboard — same desktop session. |
@@ -133,6 +133,88 @@ Claude sends tool call
 ### Shortcut Filtering
 
 Global keyboard shortcuts (`Win+D`, `Alt+Tab`, `Ctrl+Alt+Del`) could affect the entire desktop session. The confinement engine maintains a **blocked shortcut list** for system-wide shortcuts and only allows application-level shortcuts (`Ctrl+C`, `Ctrl+S`, `Alt+F4`) targeted at the foreground window on the agent's screen. The allowlist is configurable.
+
+### Input Delivery Model
+
+Each write tool uses a specific input injection strategy, chosen for reliability on the agent's virtual screen:
+
+| Tool | Primary Method | Fallback | Focus Required? |
+|------|---------------|----------|-----------------|
+| **Click** | UIA `InvokePattern` / `TogglePattern` when element supports it | `SendInput` mouse event at absolute coords after confirming target window is foreground on agent screen | Yes — activate target window first |
+| **Type** | UIA `ValuePattern.SetValue` for text fields | `SendInput` keystrokes after confirming target window is foreground on agent screen | Yes — verify focus before keystroke injection |
+| **Move** | `SetCursorPos` + `SendInput` mouse move/drag | — | No |
+| **Scroll** | UIA `ScrollPattern` when available | `SendInput` wheel event at coords | No |
+| **Shortcut** | `PostMessage` / `SendMessage` to target window handle | `SendInput` after foreground verification | Yes — target must be foreground on agent screen |
+| **MultiSelect** | Same as Click per element | — | Yes |
+| **MultiEdit** | Same as Type per element | — | Yes |
+
+**Focus management policy:**
+- Before any focus-requiring action, the engine checks that the target window is on the agent screen and is the foreground window there.
+- If the target window is on the agent screen but not foreground, the engine activates it via `SetForegroundWindow` (with `AttachThreadInput` if needed).
+- If another process (e.g., user clicking on their physical screen) steals foreground mid-action, the engine re-verifies before continuing. If focus cannot be re-established on the agent screen, the action fails with an error rather than typing blindly.
+
+**Viewer input forwarding:**
+- The viewer captures mouse/keyboard events within its widget, translates them to absolute coordinates on the virtual display, and sends them via named pipe to the MCP server.
+- The MCP server injects these as `SendInput` events at the translated coordinates. The viewer is a control surface, not an embedded remote desktop — it forwards events but doesn't host the windows.
+
+### Windows Spanning Monitors
+
+A window can straddle the agent screen and a user screen. Policy:
+
+- **Write actions:** Allowed only if the target point (click coordinate, element center) lies within agent screen bounds. The window itself may extend beyond — we validate the interaction point, not the window rect.
+- **Type/Shortcut:** Target window must have its primary area (>50% of its bounding rect) on the agent screen. If a window is mostly on the user's screen, the agent should use `RecoverWindow` to move it fully onto its screen first.
+- **Snapshot:** Windows are included in a screen's UI tree if their center point is on that screen. Windows spanning monitors appear in the tree of whichever screen contains their center.
+
+## Server State Machine
+
+```
+                    ┌──────────────┐
+                    │     INIT     │
+                    └──────┬───────┘
+                           │
+              driver found? │
+         ┌────── no ────────┤
+         ▼                  ▼ yes
+┌────────────────┐  ┌──────────────┐
+│ DRIVER_MISSING │  │   CREATING   │
+│ (tools work    │  │   DISPLAY    │
+│  except GUI)   │  └──────┬───────┘
+└────────────────┘         │
+                  success? │
+         ┌──── no ─────────┤
+         ▼                  ▼ yes
+┌────────────────┐  ┌──────────────┐
+│ CREATE_FAILED  │  │    READY     │◄──── normal operation
+└────────────────┘  └──┬───┬───┬───┘
+                       │   │   │
+          display gone │   │   │ crash/restart
+                       ▼   │   ▼
+              ┌────────┐   │  ┌─────────────┐
+              │DEGRADED│   │  │ RECOVERING  │
+              └────┬───┘   │  │ (re-discover│
+                   │       │  │  display)   │
+                   └───────┤  └──────┬──────┘
+                           │         │
+                           ▼         │ found
+                   ┌──────────────┐  │
+                   │ SHUTTING_DOWN│◄─┘ (or → READY)
+                   └──────────────┘
+```
+
+**State descriptions:**
+
+| State | Description | Tools Available |
+|-------|-------------|-----------------|
+| `INIT` | Server starting, checking driver | None |
+| `DRIVER_MISSING` | IddSampleDriver not installed | Unconfined tools only (PowerShell, FileSystem, etc.) |
+| `CREATING_DISPLAY` | Virtual display being created | Unconfined tools only |
+| `CREATE_FAILED` | Display creation failed | Unconfined tools only. Error with diagnostics. |
+| `READY` | Agent screen active, all systems go | All tools |
+| `DEGRADED` | Display exists but capture failing or bounds stale | All tools, screenshot may return errors |
+| `RECOVERING` | Reconnecting after crash/restart | Unconfined tools only during reconnection |
+| `SHUTTING_DOWN` | Cleaning up, migrating windows | None — reject new tool calls |
+
+The current state is published to the Management UI via the status named pipe, so the toolbar always reflects the true server state.
 
 ## Virtual Display Manager
 
@@ -185,6 +267,17 @@ An open-source Indirect Display Driver (IDD) for Windows 10/11. Creates virtual 
 
 **One-time install:** User installs the driver once (signed `.inf` + `.sys`). The MCP server manages it programmatically after that.
 
+### Display Identity
+
+The server must reliably identify "its" virtual display — especially after a crash/restart when a display may already exist:
+
+- On creation, the server records the **device instance ID** and **monitor handle** returned by the driver.
+- It persists this identity to a state file (`~/.windowsmcp/display-state.json`) containing: device instance ID, resolution, and creation timestamp.
+- On startup, before creating a new display, the server checks for an existing state file and attempts to re-discover the display by device instance ID via `EnumDisplayDevices`.
+- If found and still active, the server reconnects to the existing display (no re-creation needed).
+- If the state file exists but the display is gone, the server cleans up the stale state and creates fresh.
+- Pre-existing virtual displays not created by this server (other IDD tools, docking stations) are ignored — the server only manages displays whose device instance ID matches its state file.
+
 ### Display Configuration
 
 | Setting | Default | Notes |
@@ -201,7 +294,7 @@ An open-source Indirect Display Driver (IDD) for Windows 10/11. Creates virtual 
 | **CreateScreen** | Create the agent's virtual display. Params: resolution (optional). Returns screen bounds. |
 | **DestroyScreen** | Remove the virtual display. Moves remaining windows to user's primary screen first. |
 | **ScreenInfo** | Returns agent screen bounds, resolution, and list of all screens with roles. |
-| **RecoverWindow** | Move a window (by title/handle) from any screen to the agent's screen. For stray pop-ups. |
+| **RecoverWindow** | Move a window to the agent's screen. Selectors: title (regex), window handle, PID, process name, or class name. For stray pop-ups. |
 
 ## Management UI
 
@@ -245,7 +338,7 @@ UI Process (PyQt6)                    MCP Server Process
 └───────────────────────┘             └──────────────────┘
 ```
 
-- **Shared memory** for frame delivery (zero-copy overhead)
+- **Shared memory** for frame delivery (avoids serialization and socket transfer overhead)
 - **Named pipes** for status updates and commands (low-frequency JSON messages)
 - **Named pipes** for input forwarding (viewer → MCP → pywin32)
 
@@ -262,8 +355,9 @@ Windows places dialogs on the "primary" monitor, not necessarily where the paren
 
 Windows remembers last window position. New app windows may open on user's screen.
 
-- **Prevention:** `App` tool immediately moves + resizes the new window to agent screen after launch. Short polling loop (100ms intervals, 3s timeout) to catch the window handle.
-- **Fallback:** If window handle not found in time, scan all screens and use `RecoverWindow`.
+- **Prevention:** `App` tool tracks the launched process tree by PID. A "window shepherd" watches for new top-level windows from that PID (and child PIDs) for a 5-second grace period, moving each to the agent screen as it appears. Polling at 100ms intervals.
+- **Handles complex launches:** Apps that spawn launcher processes, splash screens, or multiple top-level windows are all caught by PID-tree tracking rather than single-window detection.
+- **Fallback:** If no windows are found in the grace period, scan all screens for windows matching the process name and use `RecoverWindow`.
 
 ### Virtual Display Driver Missing
 
@@ -292,8 +386,33 @@ Windows remembers last window position. New app windows may open on user's scree
 
 ### Display Layout Changes
 
-- **Detection:** Listen for `WM_DISPLAYCHANGE` messages. Re-enumerate monitors.
+- **Detection:** Listen for `WM_DISPLAYCHANGE` via a hidden message-only window (`CreateWindowEx` with `HWND_MESSAGE`) running a message pump on a dedicated thread.
 - **Response:** Update agent screen bounds (position may shift). Notify agent via next tool response.
+
+### UAC / Secure Desktop
+
+UAC prompts and credential dialogs appear on the Windows secure desktop, which is inaccessible to normal processes.
+
+- **Detection:** Monitor for foreground window loss combined with no visible foreground window on any screen — a strong signal of secure desktop activation.
+- **Response:** Server transitions to `DEGRADED` state. GUI write tools return an error indicating secure desktop is active and manual intervention is required. The toolbar shows a visible warning. Agent is instructed to wait and retry after the secure desktop dismisses.
+- **Prevention:** If the agent needs to run elevated operations, prefer PowerShell with `Start-Process -Verb RunAs` and handle the UAC prompt manually, or configure the system to auto-elevate specific tasks.
+
+### Elevated Applications
+
+Windows User Interface Privilege Isolation (UIPI) prevents a non-elevated process from sending input to an elevated window.
+
+- **Detection:** Before input injection, check if the target window's process is elevated via `OpenProcessToken` + `GetTokenInformation`. If elevated and the MCP server is not, the action will fail.
+- **Response:** Return a clear error: "Target window is running elevated. MCP server cannot inject input into elevated processes unless it is also running elevated."
+- **Guidance:** The system prompt should instruct the agent to prefer non-elevated workflows. If elevation is required, the agent can use PowerShell to perform the operation directly rather than trying to automate an elevated GUI.
+
+### Session Lock / Unlock and RDP
+
+Display topology, capture APIs, and input injection behave differently during session transitions.
+
+- **Detection:** Register for session notifications via `WTSRegisterSessionNotification` on the hidden message window. Listen for `WM_WTSSESSION_CHANGE` events: `WTS_SESSION_LOCK`, `WTS_SESSION_UNLOCK`, `WTS_SESSION_REMOTE_CONNECT`, `WTS_SESSION_REMOTE_DISCONNECT`, `WTS_CONSOLE_CONNECT`, `WTS_CONSOLE_DISCONNECT`.
+- **On lock:** Transition to `DEGRADED` state. Capture may fail or return stale frames. GUI write tools are paused with informative errors.
+- **On unlock:** Re-enumerate displays, re-verify agent screen bounds, transition back to `READY`.
+- **On RDP connect/disconnect:** Display topology may change entirely. Re-run the full display discovery flow. If the agent's virtual display is no longer present, attempt re-creation.
 
 ## Tech Stack
 
@@ -305,7 +424,7 @@ Windows remembers last window position. New app windows may open on user's scree
 | Win32 APIs | `pywin32` | Window management, input injection, display enumeration. |
 | Virtual Display | `IddSampleDriver` + `ctypes` | DeviceIoControl via ctypes for virtual monitor management. |
 | Management UI | `PyQt6` | Native look, hardware-accelerated viewer rendering. |
-| IPC | Named pipes + shared memory | Zero-copy frames, low-frequency status messages. |
+| IPC | Named pipes + shared memory | Shared memory for low-overhead frame delivery, named pipes for status/commands. |
 | Package Manager | `uv` | Fast Python package management. Same as existing Windows MCP. |
 
 ## Project Structure
