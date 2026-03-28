@@ -181,7 +181,11 @@ register_all(mcp, get_display_manager=_get_display_manager, get_confinement=_get
 @click.option("--port", default=8000, type=int, help="Port to listen on (sse only).")
 def main(transport: str, host: str, port: int) -> None:
     """Start the WindowsMCP Custom server."""
-    mcp.run(transport=transport, host=host, port=port, show_banner=False)
+    kwargs = {"transport": transport, "show_banner": False}
+    if transport == "sse":
+        kwargs["host"] = host
+        kwargs["port"] = port
+    mcp.run(**kwargs)
 
 
 if __name__ == "__main__":
