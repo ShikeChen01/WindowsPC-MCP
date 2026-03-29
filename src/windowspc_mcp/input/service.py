@@ -9,19 +9,19 @@ import logging
 import time
 import re
 
-from windowsmcp_custom.uia.controls import (
+from windowspc_mcp.uia.controls import (
     click_at, type_text as raw_type_text, scroll_at, move_cursor,
     set_foreground_window, get_foreground_window, get_window_rect,
     enumerate_windows, is_window_visible,
 )
-from windowsmcp_custom.uia.core import (
+from windowspc_mcp.uia.core import (
     INPUT, INPUT_UNION, KEYBDINPUT, MOUSEINPUT,
     INPUT_MOUSE, INPUT_KEYBOARD,
     MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
     KEYEVENTF_KEYUP, send_input,
 )
-from windowsmcp_custom.confinement.errors import BlockedShortcutError, TargetNotFoundError
-from windowsmcp_custom.confinement.shortcuts import is_shortcut_allowed, get_blocked_reason
+from windowspc_mcp.confinement.errors import BlockedShortcutError, TargetNotFoundError
+from windowspc_mcp.confinement.shortcuts import is_shortcut_allowed, get_blocked_reason
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from windowsmcp_custom.display.manager import DisplayManager, DisplayInfo
+from windowspc_mcp.display.manager import DisplayManager, DisplayInfo
 
 
 class TestDisplayInfo:

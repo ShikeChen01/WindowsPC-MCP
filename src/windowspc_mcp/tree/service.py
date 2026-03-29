@@ -7,13 +7,13 @@ import ctypes
 import ctypes.wintypes as wintypes
 from dataclasses import dataclass
 
-from windowsmcp_custom.tree.views import (
+from windowspc_mcp.tree.views import (
     BoundingBox, TreeElementNode, ScrollElementNode, TreeState,
 )
-from windowsmcp_custom.tree.config import (
+from windowspc_mcp.tree.config import (
     INTERACTIVE_CONTROL_TYPE_NAMES, DOCUMENT_CONTROL_TYPE_NAMES, INTERACTIVE_ROLES,
 )
-from windowsmcp_custom.uia.core import _AutomationClient
+from windowspc_mcp.uia.core import _AutomationClient
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +116,7 @@ class TreeService:
 
     def _get_windows_on_screen(self) -> list[int]:
         """Get handles of all visible windows whose center is on the agent screen."""
-        from windowsmcp_custom.uia.controls import (
+        from windowspc_mcp.uia.controls import (
             enumerate_windows, get_window_rect, is_window_visible, get_window_title,
         )
         handles = []
@@ -141,7 +141,7 @@ class TreeService:
         scrollable_nodes: list[ScrollElementNode],
     ):
         """Extract interactive/scrollable elements from a single window."""
-        from windowsmcp_custom.uia.controls import get_window_title, get_window_rect
+        from windowspc_mcp.uia.controls import get_window_title, get_window_rect
 
         client = self._get_client()
         if client.uia is None:

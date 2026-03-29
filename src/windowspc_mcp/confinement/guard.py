@@ -1,9 +1,9 @@
 """Tool execution guard — checks server state before allowing tool execution."""
 
 import logging
-from windowsmcp_custom.server import ServerStateManager, ServerState
-from windowsmcp_custom.confinement.engine import ConfinementEngine, ActionType
-from windowsmcp_custom.confinement.errors import InvalidStateError, DisplayUnavailableError
+from windowspc_mcp.server import ServerStateManager, ServerState
+from windowspc_mcp.confinement.engine import ConfinementEngine, ActionType
+from windowspc_mcp.confinement.errors import InvalidStateError, DisplayUnavailableError
 
 logger = logging.getLogger(__name__)
 

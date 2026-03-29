@@ -4,7 +4,7 @@ import functools
 import logging
 from typing import Callable
 
-from windowsmcp_custom.confinement.errors import InvalidStateError, WindowsMCPError
+from windowspc_mcp.confinement.errors import InvalidStateError, WindowsMCPError
 
 logger = logging.getLogger(__name__)
 

@@ -1,5 +1,5 @@
 import pytest
-from windowsmcp_custom.confinement.engine import ConfinementEngine, ConfinementError, ActionType
+from windowspc_mcp.confinement.engine import ConfinementEngine, ConfinementError, ActionType
 from tests.conftest import MockBounds
 
 
@@ -71,18 +71,18 @@ class TestPointOnAgentScreen:
 
 class TestShortcutFiltering:
     def test_allowed_shortcut(self):
-        from windowsmcp_custom.confinement.shortcuts import is_shortcut_allowed
+        from windowspc_mcp.confinement.shortcuts import is_shortcut_allowed
         assert is_shortcut_allowed("ctrl+c")
         assert is_shortcut_allowed("Ctrl+S")
         assert is_shortcut_allowed("F5")
 
     def test_blocked_shortcut(self):
-        from windowsmcp_custom.confinement.shortcuts import is_shortcut_allowed
+        from windowspc_mcp.confinement.shortcuts import is_shortcut_allowed
         assert not is_shortcut_allowed("alt+tab")
         assert not is_shortcut_allowed("win+d")
         assert not is_shortcut_allowed("ctrl+alt+del")
 
     def test_win_modifier_blocked_by_default(self):
-        from windowsmcp_custom.confinement.shortcuts import is_shortcut_allowed
+        from windowspc_mcp.confinement.shortcuts import is_shortcut_allowed
         assert not is_shortcut_allowed("win+x")
         assert not is_shortcut_allowed("win+shift+s")

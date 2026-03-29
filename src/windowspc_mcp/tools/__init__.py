@@ -1,6 +1,6 @@
 """MCP tool registry."""
 
-from windowsmcp_custom.tools import (
+from windowspc_mcp.tools import (
     screen,
     screenshot,
     input,

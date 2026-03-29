@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from windowsmcp_custom.confinement.decorators import guarded_tool, with_tool_name
+from windowspc_mcp.confinement.decorators import guarded_tool, with_tool_name
 
 
 def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None, get_input_service=None):
@@ -32,7 +32,7 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
         if get_state_manager is not None:
             sm = get_state_manager()
             if sm is not None:
-                from windowsmcp_custom.server import ServerState
+                from windowspc_mcp.server import ServerState
                 sm.transition(ServerState.READY)
 
         return (
@@ -56,7 +56,7 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
         if get_state_manager is not None:
             sm = get_state_manager()
             if sm is not None:
-                from windowsmcp_custom.server import ServerState
+                from windowspc_mcp.server import ServerState
                 # Only transition away from READY — leave DEGRADED/DRIVER_MISSING alone
                 if sm.state == ServerState.READY:
                     sm.transition(
@@ -109,7 +109,7 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
         process_name: str = None,
         class_name: str = None,
     ) -> str:
-        from windowsmcp_custom.uia.controls import (
+        from windowspc_mcp.uia.controls import (
             enumerate_windows,
             get_window_rect,
             get_window_title,

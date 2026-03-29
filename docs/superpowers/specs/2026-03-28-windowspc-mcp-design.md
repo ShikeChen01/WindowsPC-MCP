@@ -1,4 +1,4 @@
-# WindowsMCP Custom — Confined Agent Desktop
+# WindowsPC-MCP — Confined Agent Desktop
 
 **Date:** 2026-03-28
 **Status:** Draft
@@ -432,7 +432,7 @@ Display topology, capture APIs, and input injection behave differently during se
 ```
 WindowsMCP_Custom/
 ├── src/
-│   └── windowsmcp_custom/
+│   └── windowspc_mcp/
 │       ├── __main__.py              # Entry point, register tools on FastMCP
 │       ├── confinement/
 │       │   ├── engine.py            # Confinement engine — bounds check, coord translation

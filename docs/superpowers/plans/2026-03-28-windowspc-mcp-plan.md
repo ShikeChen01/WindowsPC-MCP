@@ -1,4 +1,4 @@
-# WindowsMCP Custom Implementation Plan
+# WindowsPC-MCP Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.12+, FastMCP, comtypes, pywin32, dxcam/mss/Pillow, ctypes (Parsec VDD), PyQt6, uv
 
-**Spec:** `docs/superpowers/specs/2026-03-28-windowsmcp-custom-design.md`
+**Spec:** `docs/superpowers/specs/2026-03-28-windowspc-mcp-design.md`
 
 **Driver choice update:** Parsec VDD instead of IddSampleDriver — signed driver, simplest IOCTL interface (4 codes), reliable keep-alive mechanism.
 
@@ -19,7 +19,7 @@
 ```
 WindowsMCP_Custom/
 ├── src/
-│   └── windowsmcp_custom/
+│   └── windowspc_mcp/
 │       ├── __init__.py
 │       ├── __main__.py              # Entry point, FastMCP server, CLI
 │       ├── server.py                # Server state machine, lifespan
@@ -116,8 +116,8 @@ Task 1 (Scaffolding)
 
 **Files:**
 - Create: `pyproject.toml`
-- Create: `src/windowsmcp_custom/__init__.py`
-- Create: `src/windowsmcp_custom/__main__.py`
+- Create: `src/windowspc_mcp/__init__.py`
+- Create: `src/windowspc_mcp/__main__.py`
 - Create: `tests/__init__.py`
 - Create: `tests/conftest.py`
 
@@ -125,7 +125,7 @@ Task 1 (Scaffolding)
 
 ```toml
 [project]
-name = "windowsmcp-custom"
+name = "windowspc-mcp"
 version = "0.1.0"
 description = "Confined Windows MCP server with virtual display isolation for AI agents."
 requires-python = ">=3.12"
@@ -150,7 +150,7 @@ dev = [
 ]
 
 [project.scripts]
-windowsmcp-custom = "windowsmcp_custom.__main__:main"
+windowspc-mcp = "windowspc_mcp.__main__:main"
 
 [build-system]
 requires = ["setuptools>=61"]
@@ -169,16 +169,16 @@ testpaths = ["tests"]
 
 - [ ] **Step 2: Create package init**
 
-Create `src/windowsmcp_custom/__init__.py`:
+Create `src/windowspc_mcp/__init__.py`:
 ```python
-"""WindowsMCP Custom — Confined agent desktop MCP server."""
+"""WindowsPC-MCP — Confined agent desktop MCP server."""
 ```
 
 - [ ] **Step 3: Create minimal entry point**
 
-Create `src/windowsmcp_custom/__main__.py`:
+Create `src/windowspc_mcp/__main__.py`:
 ```python
-"""Entry point for the WindowsMCP Custom server."""
+"""Entry point for the WindowsPC-MCP server."""
 
 import click
 from fastmcp import FastMCP
@@ -192,9 +192,9 @@ async def lifespan(app: FastMCP):
 
 
 mcp = FastMCP(
-    name="windowsmcp-custom",
+    name="windowspc-mcp",
     instructions=(
-        "WindowsMCP Custom provides tools to interact with a confined virtual display. "
+        "WindowsPC-MCP provides tools to interact with a confined virtual display. "
         "The agent operates on a dedicated virtual screen and cannot interact with the "
         "user's physical screens. Use CreateScreen to set up the agent display first."
     ),
@@ -207,7 +207,7 @@ mcp = FastMCP(
 @click.option("--host", default="localhost", type=str)
 @click.option("--port", default=8000, type=int)
 def main(transport: str, host: str, port: int):
-    """Start the WindowsMCP Custom server."""
+    """Start the WindowsPC-MCP server."""
     mcp.run(transport=transport, host=host, port=port, show_banner=False)
 
 
@@ -221,7 +221,7 @@ Create `tests/__init__.py` (empty).
 
 Create `tests/conftest.py`:
 ```python
-"""Shared test fixtures for WindowsMCP Custom."""
+"""Shared test fixtures for WindowsPC-MCP."""
 
 import pytest
 from dataclasses import dataclass
@@ -270,10 +270,10 @@ def user_bounds():
 cd C:/Users/doubi/Claude_Project/WindowsMCP_Custom
 uv venv
 uv pip install -e ".[dev]"
-uv run python -c "from windowsmcp_custom.__main__ import mcp; print(f'Server: {mcp.name}')"
+uv run python -c "from windowspc_mcp.__main__ import mcp; print(f'Server: {mcp.name}')"
 ```
 
-Expected: `Server: windowsmcp-custom`
+Expected: `Server: windowspc-mcp`
 
 - [ ] **Step 6: Commit**
 
@@ -287,16 +287,16 @@ git commit -m "feat: project scaffolding with FastMCP entry point"
 ### Task 2: UIA Wrapper Module
 
 **Files:**
-- Create: `src/windowsmcp_custom/uia/__init__.py`
-- Create: `src/windowsmcp_custom/uia/core.py`
-- Create: `src/windowsmcp_custom/uia/controls.py`
-- Create: `src/windowsmcp_custom/uia/patterns.py`
+- Create: `src/windowspc_mcp/uia/__init__.py`
+- Create: `src/windowspc_mcp/uia/core.py`
+- Create: `src/windowspc_mcp/uia/controls.py`
+- Create: `src/windowspc_mcp/uia/patterns.py`
 
 This is adapted from the existing Windows MCP UIA module. The wrapper provides the COM automation client singleton and helper functions for element discovery, input injection, and pattern access.
 
 - [ ] **Step 1: Create UIA core with COM singleton**
 
-Create `src/windowsmcp_custom/uia/core.py`:
+Create `src/windowspc_mcp/uia/core.py`:
 ```python
 """UIAutomation COM client singleton."""
 
@@ -425,14 +425,14 @@ class _AutomationClient:
 
 - [ ] **Step 2: Create controls module**
 
-Create `src/windowsmcp_custom/uia/controls.py`:
+Create `src/windowspc_mcp/uia/controls.py`:
 ```python
 """Window and element control helpers."""
 
 import ctypes
 import ctypes.wintypes as wintypes
 import logging
-from windowsmcp_custom.uia.core import (
+from windowspc_mcp.uia.core import (
     GA_ROOT, SW_RESTORE, _AutomationClient,
     INPUT, INPUT_UNION, MOUSEINPUT, KEYBDINPUT, INPUT_MOUSE, INPUT_KEYBOARD,
     MOUSEEVENTF_MOVE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
@@ -599,12 +599,12 @@ def move_cursor(x: int, y: int):
 
 - [ ] **Step 3: Create patterns module**
 
-Create `src/windowsmcp_custom/uia/patterns.py`:
+Create `src/windowspc_mcp/uia/patterns.py`:
 ```python
 """UIAutomation pattern helpers for element interaction."""
 
 import logging
-from windowsmcp_custom.uia.core import _AutomationClient
+from windowspc_mcp.uia.core import _AutomationClient
 
 logger = logging.getLogger(__name__)
 
@@ -670,19 +670,19 @@ def try_set_value(element, value: str) -> bool:
 
 - [ ] **Step 4: Create UIA package init**
 
-Create `src/windowsmcp_custom/uia/__init__.py`:
+Create `src/windowspc_mcp/uia/__init__.py`:
 ```python
 """UIAutomation wrapper for Windows desktop interaction."""
 
-from windowsmcp_custom.uia.core import _AutomationClient, send_input
-from windowsmcp_custom.uia.controls import (
+from windowspc_mcp.uia.core import _AutomationClient, send_input
+from windowspc_mcp.uia.controls import (
     get_foreground_window, set_foreground_window,
     get_window_rect, move_window, get_window_title,
     get_window_class, get_window_pid, get_root_window,
     is_window_visible, enumerate_windows,
     click_at, type_text, scroll_at, move_cursor,
 )
-from windowsmcp_custom.uia.patterns import (
+from windowspc_mcp.uia.patterns import (
     get_element_from_point, get_element_from_handle,
     get_element_rect, try_invoke, try_set_value,
 )
@@ -691,7 +691,7 @@ from windowsmcp_custom.uia.patterns import (
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/windowsmcp_custom/uia/
+git add src/windowspc_mcp/uia/
 git commit -m "feat: UIA wrapper module — COM client, controls, patterns"
 ```
 
@@ -700,8 +700,8 @@ git commit -m "feat: UIA wrapper module — COM client, controls, patterns"
 ### Task 3: Parsec VDD Driver Wrapper
 
 **Files:**
-- Create: `src/windowsmcp_custom/display/__init__.py`
-- Create: `src/windowsmcp_custom/display/driver.py`
+- Create: `src/windowspc_mcp/display/__init__.py`
+- Create: `src/windowspc_mcp/display/driver.py`
 - Create: `tests/test_driver.py`
 
 - [ ] **Step 1: Write tests for the driver wrapper**
@@ -717,7 +717,7 @@ Unit tests mock the Win32 APIs.
 
 import pytest
 from unittest.mock import patch, MagicMock
-from windowsmcp_custom.display.driver import (
+from windowspc_mcp.display.driver import (
     ParsecVDD, VDD_IOCTL_ADD, VDD_IOCTL_REMOVE, VDD_IOCTL_UPDATE, VDD_IOCTL_VERSION,
     open_device_handle,
 )
@@ -732,7 +732,7 @@ class TestParseVDDConstants:
 
 
 class TestParseVDDOpenHandle:
-    @patch("windowsmcp_custom.display.driver.SetupDiGetClassDevsA")
+    @patch("windowspc_mcp.display.driver.SetupDiGetClassDevsA")
     def test_raises_when_driver_not_found(self, mock_setup):
         mock_setup.return_value = -1  # INVALID_HANDLE_VALUE
         with pytest.raises(OSError, match="Could not find Parsec VDD"):
@@ -740,13 +740,13 @@ class TestParseVDDOpenHandle:
 
 
 class TestParseVDDLifecycle:
-    @patch("windowsmcp_custom.display.driver.open_device_handle")
+    @patch("windowspc_mcp.display.driver.open_device_handle")
     def test_context_manager_opens_and_closes(self, mock_open):
         mock_handle = MagicMock()
         mock_open.return_value = mock_handle
 
-        with patch("windowsmcp_custom.display.driver.vdd_update"):
-            with patch("windowsmcp_custom.display.driver.CloseHandle") as mock_close:
+        with patch("windowspc_mcp.display.driver.vdd_update"):
+            with patch("windowspc_mcp.display.driver.CloseHandle") as mock_close:
                 vdd = ParsecVDD()
                 vdd.close()
                 mock_close.assert_called_once_with(mock_handle)
@@ -758,16 +758,16 @@ class TestParseVDDLifecycle:
 uv run pytest tests/test_driver.py -v
 ```
 
-Expected: FAIL — `ModuleNotFoundError: No module named 'windowsmcp_custom.display'`
+Expected: FAIL — `ModuleNotFoundError: No module named 'windowspc_mcp.display'`
 
 - [ ] **Step 3: Implement Parsec VDD driver wrapper**
 
-Create `src/windowsmcp_custom/display/__init__.py`:
+Create `src/windowspc_mcp/display/__init__.py`:
 ```python
 """Virtual display management."""
 ```
 
-Create `src/windowsmcp_custom/display/driver.py`:
+Create `src/windowspc_mcp/display/driver.py`:
 ```python
 """Parsec VDD virtual display driver wrapper using ctypes.
 
@@ -1067,7 +1067,7 @@ Expected: PASS for mock tests, SKIP for hardware tests.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/windowsmcp_custom/display/ tests/test_driver.py
+git add src/windowspc_mcp/display/ tests/test_driver.py
 git commit -m "feat: Parsec VDD driver wrapper with keep-alive thread"
 ```
 
@@ -1076,8 +1076,8 @@ git commit -m "feat: Parsec VDD driver wrapper with keep-alive thread"
 ### Task 4: Display Manager
 
 **Files:**
-- Create: `src/windowsmcp_custom/display/manager.py`
-- Create: `src/windowsmcp_custom/display/identity.py`
+- Create: `src/windowspc_mcp/display/manager.py`
+- Create: `src/windowspc_mcp/display/identity.py`
 - Create: `tests/test_display_manager.py`
 
 - [ ] **Step 1: Write tests for display manager**
@@ -1090,7 +1090,7 @@ import json
 import pytest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
-from windowsmcp_custom.display.manager import DisplayManager, DisplayInfo
+from windowspc_mcp.display.manager import DisplayManager, DisplayInfo
 
 
 class TestDisplayInfo:
@@ -1121,7 +1121,7 @@ class TestDisplayInfo:
 
 
 class TestDisplayManagerEnumerate:
-    @patch("windowsmcp_custom.display.manager.win32api")
+    @patch("windowspc_mcp.display.manager.win32api")
     def test_enumerate_monitors(self, mock_api):
         mock_api.EnumDisplayMonitors.return_value = [
             (1, None, (0, 0, 1920, 1080)),
@@ -1153,7 +1153,7 @@ Expected: FAIL — module not found.
 
 - [ ] **Step 3: Implement DisplayManager**
 
-Create `src/windowsmcp_custom/display/identity.py`:
+Create `src/windowspc_mcp/display/identity.py`:
 ```python
 """Display state persistence for crash recovery."""
 
@@ -1203,7 +1203,7 @@ def clear_state():
         logger.info("Display state cleared")
 ```
 
-Create `src/windowsmcp_custom/display/manager.py`:
+Create `src/windowspc_mcp/display/manager.py`:
 ```python
 """Virtual display lifecycle manager.
 
@@ -1219,8 +1219,8 @@ from datetime import datetime, timezone
 import win32api
 import win32con
 
-from windowsmcp_custom.display.driver import ParsecVDD
-from windowsmcp_custom.display.identity import (
+from windowspc_mcp.display.driver import ParsecVDD
+from windowspc_mcp.display.identity import (
     PersistedDisplayState, save_state, load_state, clear_state,
 )
 
@@ -1483,7 +1483,7 @@ class DisplayManager:
         if self._agent_display is None:
             return
 
-        from windowsmcp_custom.uia.controls import (
+        from windowspc_mcp.uia.controls import (
             enumerate_windows, get_window_rect, move_window, is_window_visible,
         )
 
@@ -1515,7 +1515,7 @@ Expected: PASS for unit tests.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/windowsmcp_custom/display/ tests/test_display_manager.py
+git add src/windowspc_mcp/display/ tests/test_display_manager.py
 git commit -m "feat: display manager with lifecycle, enumeration, crash recovery"
 ```
 
@@ -1524,9 +1524,9 @@ git commit -m "feat: display manager with lifecycle, enumeration, crash recovery
 ### Task 5: Confinement Engine
 
 **Files:**
-- Create: `src/windowsmcp_custom/confinement/__init__.py`
-- Create: `src/windowsmcp_custom/confinement/engine.py`
-- Create: `src/windowsmcp_custom/confinement/bounds.py`
+- Create: `src/windowspc_mcp/confinement/__init__.py`
+- Create: `src/windowspc_mcp/confinement/engine.py`
+- Create: `src/windowspc_mcp/confinement/bounds.py`
 - Create: `tests/test_confinement.py`
 
 - [ ] **Step 1: Write tests for confinement engine**
@@ -1536,7 +1536,7 @@ Create `tests/test_confinement.py`:
 """Tests for the confinement engine."""
 
 import pytest
-from windowsmcp_custom.confinement.engine import (
+from windowspc_mcp.confinement.engine import (
     ConfinementEngine, ConfinementError, ActionType,
 )
 from tests.conftest import MockBounds
@@ -1618,12 +1618,12 @@ Expected: FAIL — module not found.
 
 - [ ] **Step 3: Implement confinement engine**
 
-Create `src/windowsmcp_custom/confinement/__init__.py`:
+Create `src/windowspc_mcp/confinement/__init__.py`:
 ```python
 """Confinement engine for restricting agent GUI actions to the virtual display."""
 ```
 
-Create `src/windowsmcp_custom/confinement/bounds.py`:
+Create `src/windowspc_mcp/confinement/bounds.py`:
 ```python
 """Screen bounds tracking and display change monitoring."""
 
@@ -1717,7 +1717,7 @@ class DisplayChangeListener:
             ctypes.windll.user32.DispatchMessageW(ctypes.byref(msg))
 ```
 
-Create `src/windowsmcp_custom/confinement/engine.py`:
+Create `src/windowspc_mcp/confinement/engine.py`:
 ```python
 """Confinement engine — validates and translates agent actions to the virtual display."""
 
@@ -1883,7 +1883,7 @@ Expected: All PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/windowsmcp_custom/confinement/ tests/test_confinement.py
+git add src/windowspc_mcp/confinement/ tests/test_confinement.py
 git commit -m "feat: confinement engine with bounds validation and coord translation"
 ```
 
@@ -1892,11 +1892,11 @@ git commit -m "feat: confinement engine with bounds validation and coord transla
 ### Task 6: Shortcut Filtering
 
 **Files:**
-- Create: `src/windowsmcp_custom/confinement/shortcuts.py`
+- Create: `src/windowspc_mcp/confinement/shortcuts.py`
 
 - [ ] **Step 1: Implement shortcut filter**
 
-Create `src/windowsmcp_custom/confinement/shortcuts.py`:
+Create `src/windowspc_mcp/confinement/shortcuts.py`:
 ```python
 """Shortcut allowlist/blocklist for preventing global system shortcuts."""
 
@@ -1991,7 +1991,7 @@ def get_blocked_reason(shortcut: str) -> str:
 - [ ] **Step 2: Commit**
 
 ```bash
-git add src/windowsmcp_custom/confinement/shortcuts.py
+git add src/windowspc_mcp/confinement/shortcuts.py
 git commit -m "feat: shortcut filtering — allowlist/blocklist for system shortcuts"
 ```
 
@@ -2000,16 +2000,16 @@ git commit -m "feat: shortcut filtering — allowlist/blocklist for system short
 ### Task 7: Screen Management MCP Tools
 
 **Files:**
-- Create: `src/windowsmcp_custom/tools/__init__.py`
-- Create: `src/windowsmcp_custom/tools/screen.py`
+- Create: `src/windowspc_mcp/tools/__init__.py`
+- Create: `src/windowspc_mcp/tools/screen.py`
 
 - [ ] **Step 1: Create tool registry**
 
-Create `src/windowsmcp_custom/tools/__init__.py`:
+Create `src/windowspc_mcp/tools/__init__.py`:
 ```python
 """MCP tool registry."""
 
-from windowsmcp_custom.tools import (
+from windowspc_mcp.tools import (
     screen, screenshot, input, app, multi,
     shell, filesystem, clipboard, process, registry, notification, scrape,
 )
@@ -2028,7 +2028,7 @@ def register_all(mcp, *, get_display_manager, get_confinement):
 
 - [ ] **Step 2: Implement screen management tools**
 
-Create `src/windowsmcp_custom/tools/screen.py`:
+Create `src/windowspc_mcp/tools/screen.py`:
 ```python
 """Screen management MCP tools: CreateScreen, DestroyScreen, ScreenInfo, RecoverWindow."""
 
@@ -2140,7 +2140,7 @@ def register(mcp, *, get_display_manager, get_confinement):
         if not any([title, pid, process_name, class_name]):
             return "Provide at least one selector: title, pid, process_name, or class_name."
 
-        from windowsmcp_custom.uia.controls import (
+        from windowspc_mcp.uia.controls import (
             enumerate_windows, get_window_title, get_window_pid,
             get_window_class, get_window_rect, move_window, is_window_visible,
         )
@@ -2202,7 +2202,7 @@ def register(mcp, *, get_display_manager, get_confinement):
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/windowsmcp_custom/tools/__init__.py src/windowsmcp_custom/tools/screen.py
+git add src/windowspc_mcp/tools/__init__.py src/windowspc_mcp/tools/screen.py
 git commit -m "feat: screen management tools — CreateScreen, DestroyScreen, ScreenInfo, RecoverWindow"
 ```
 
@@ -2211,7 +2211,7 @@ git commit -m "feat: screen management tools — CreateScreen, DestroyScreen, Sc
 ### Task 8: Input MCP Tools
 
 **Files:**
-- Create: `src/windowsmcp_custom/tools/input.py`
+- Create: `src/windowspc_mcp/tools/input.py`
 - Create: `tests/test_tools_input.py`
 
 - [ ] **Step 1: Write tests for input confinement**
@@ -2221,7 +2221,7 @@ Create `tests/test_tools_input.py`:
 """Tests for input tool confinement."""
 
 import pytest
-from windowsmcp_custom.confinement.engine import ConfinementEngine, ConfinementError
+from windowspc_mcp.confinement.engine import ConfinementEngine, ConfinementError
 from tests.conftest import MockBounds
 
 
@@ -2245,13 +2245,13 @@ class TestClickConfinement:
 
 class TestShortcutConfinement:
     def test_allowed_shortcut(self):
-        from windowsmcp_custom.confinement.shortcuts import is_shortcut_allowed
+        from windowspc_mcp.confinement.shortcuts import is_shortcut_allowed
         assert is_shortcut_allowed("ctrl+c")
         assert is_shortcut_allowed("Ctrl+S")
         assert is_shortcut_allowed("F5")
 
     def test_blocked_shortcut(self):
-        from windowsmcp_custom.confinement.shortcuts import is_shortcut_allowed
+        from windowspc_mcp.confinement.shortcuts import is_shortcut_allowed
         assert not is_shortcut_allowed("alt+tab")
         assert not is_shortcut_allowed("win+d")
         assert not is_shortcut_allowed("ctrl+alt+del")
@@ -2265,7 +2265,7 @@ uv run pytest tests/test_tools_input.py -v
 
 - [ ] **Step 3: Implement input tools**
 
-Create `src/windowsmcp_custom/tools/input.py`:
+Create `src/windowspc_mcp/tools/input.py`:
 ```python
 """Input MCP tools: Click, Type, Move, Scroll, Shortcut, Wait.
 
@@ -2277,8 +2277,8 @@ import time
 import logging
 from fastmcp import Context
 
-from windowsmcp_custom.confinement.engine import ConfinementError
-from windowsmcp_custom.confinement.shortcuts import is_shortcut_allowed, get_blocked_reason
+from windowspc_mcp.confinement.engine import ConfinementError
+from windowspc_mcp.confinement.shortcuts import is_shortcut_allowed, get_blocked_reason
 
 logger = logging.getLogger(__name__)
 
@@ -2309,7 +2309,7 @@ def register(mcp, *, get_display_manager, get_confinement):
         except ConfinementError as e:
             return f"Click blocked: {e}"
 
-        from windowsmcp_custom.uia.controls import click_at
+        from windowspc_mcp.uia.controls import click_at
         click_at(abs_x, abs_y, button=button, clicks=clicks)
         return f"Clicked ({x}, {y}) [{button}, {clicks}x]"
 
@@ -2339,15 +2339,15 @@ def register(mcp, *, get_display_manager, get_confinement):
                 abs_x, abs_y = ce.validate_and_translate(x, y)
             except ConfinementError as e:
                 return f"Type blocked: {e}"
-            from windowsmcp_custom.uia.controls import click_at
+            from windowspc_mcp.uia.controls import click_at
             click_at(abs_x, abs_y)
             time.sleep(0.1)
 
-        from windowsmcp_custom.uia.controls import type_text as _type_text
+        from windowspc_mcp.uia.controls import type_text as _type_text
 
         if clear:
             # Select all and delete
-            from windowsmcp_custom.uia.core import (
+            from windowspc_mcp.uia.core import (
                 INPUT, INPUT_UNION, KEYBDINPUT, INPUT_KEYBOARD, KEYEVENTF_KEYUP, send_input,
             )
             # Ctrl+A
@@ -2390,8 +2390,8 @@ def register(mcp, *, get_display_manager, get_confinement):
         except ConfinementError as e:
             return f"Move blocked: {e}"
 
-        from windowsmcp_custom.uia.controls import move_cursor
-        from windowsmcp_custom.uia.core import (
+        from windowspc_mcp.uia.controls import move_cursor
+        from windowspc_mcp.uia.core import (
             INPUT, INPUT_UNION, MOUSEINPUT, INPUT_MOUSE,
             MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, send_input,
         )
@@ -2435,7 +2435,7 @@ def register(mcp, *, get_display_manager, get_confinement):
         except ConfinementError as e:
             return f"Scroll blocked: {e}"
 
-        from windowsmcp_custom.uia.controls import scroll_at
+        from windowspc_mcp.uia.controls import scroll_at
         scroll_at(abs_x, abs_y, amount=amount, horizontal=horizontal)
         direction = "horizontally" if horizontal else "vertically"
         return f"Scrolled {direction} by {amount} at ({x}, {y})"
@@ -2454,7 +2454,7 @@ def register(mcp, *, get_display_manager, get_confinement):
             return f"Shortcut blocked: {get_blocked_reason(keys)}"
 
         # Parse shortcut into key events
-        from windowsmcp_custom.uia.core import (
+        from windowspc_mcp.uia.core import (
             INPUT, INPUT_UNION, KEYBDINPUT, INPUT_KEYBOARD, KEYEVENTF_KEYUP, send_input,
         )
 
@@ -2507,7 +2507,7 @@ uv run pytest tests/test_tools_input.py -v
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/windowsmcp_custom/tools/input.py tests/test_tools_input.py
+git add src/windowspc_mcp/tools/input.py tests/test_tools_input.py
 git commit -m "feat: input MCP tools — Click, Type, Move, Scroll, Shortcut, Wait with confinement"
 ```
 
@@ -2516,12 +2516,12 @@ git commit -m "feat: input MCP tools — Click, Type, Move, Scroll, Shortcut, Wa
 ### Task 9: Screenshot & Capture Tools
 
 **Files:**
-- Create: `src/windowsmcp_custom/display/capture.py`
-- Create: `src/windowsmcp_custom/tools/screenshot.py`
+- Create: `src/windowspc_mcp/display/capture.py`
+- Create: `src/windowspc_mcp/tools/screenshot.py`
 
 - [ ] **Step 1: Implement screen capture module**
 
-Create `src/windowsmcp_custom/display/capture.py`:
+Create `src/windowspc_mcp/display/capture.py`:
 ```python
 """Screen capture with fallback chain: dxcam → mss → Pillow."""
 
@@ -2604,7 +2604,7 @@ def image_to_base64(image: Image.Image, max_width: int = 1920) -> str:
 
 - [ ] **Step 2: Implement screenshot MCP tools**
 
-Create `src/windowsmcp_custom/tools/screenshot.py`:
+Create `src/windowspc_mcp/tools/screenshot.py`:
 ```python
 """Screenshot and Snapshot MCP tools.
 
@@ -2633,7 +2633,7 @@ def register(mcp, *, get_display_manager, get_confinement):
         dm = get_display_manager()
         ce = get_confinement()
 
-        from windowsmcp_custom.display.capture import capture_region, image_to_base64
+        from windowspc_mcp.display.capture import capture_region, image_to_base64
 
         if screen == "agent":
             bounds = ce.bounds
@@ -2686,8 +2686,8 @@ def register(mcp, *, get_display_manager, get_confinement):
         dm = get_display_manager()
         ce = get_confinement()
 
-        from windowsmcp_custom.display.capture import capture_region, image_to_base64
-        from windowsmcp_custom.uia.controls import (
+        from windowspc_mcp.display.capture import capture_region, image_to_base64
+        from windowspc_mcp.uia.controls import (
             enumerate_windows, get_window_rect, get_window_title,
             get_window_class, is_window_visible,
         )
@@ -2756,7 +2756,7 @@ def register(mcp, *, get_display_manager, get_confinement):
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/windowsmcp_custom/display/capture.py src/windowsmcp_custom/tools/screenshot.py
+git add src/windowspc_mcp/display/capture.py src/windowspc_mcp/tools/screenshot.py
 git commit -m "feat: screenshot tools and capture module with dxcam/mss/pillow fallback"
 ```
 
@@ -2765,11 +2765,11 @@ git commit -m "feat: screenshot tools and capture module with dxcam/mss/pillow f
 ### Task 10: App Tool with Window Shepherd
 
 **Files:**
-- Create: `src/windowsmcp_custom/tools/app.py`
+- Create: `src/windowspc_mcp/tools/app.py`
 
 - [ ] **Step 1: Implement App tool**
 
-Create `src/windowsmcp_custom/tools/app.py`:
+Create `src/windowspc_mcp/tools/app.py`:
 ```python
 """App MCP tool — launch applications and shepherd windows to agent screen."""
 
@@ -2824,7 +2824,7 @@ def register(mcp, *, get_display_manager, get_confinement):
             return f"Failed to launch '{name}': {e}"
 
         # Window shepherd: watch for new windows from this process tree
-        from windowsmcp_custom.uia.controls import (
+        from windowspc_mcp.uia.controls import (
             enumerate_windows, get_window_pid, get_window_rect,
             move_window, is_window_visible, get_window_title,
         )
@@ -2895,7 +2895,7 @@ def register(mcp, *, get_display_manager, get_confinement):
 - [ ] **Step 2: Commit**
 
 ```bash
-git add src/windowsmcp_custom/tools/app.py
+git add src/windowspc_mcp/tools/app.py
 git commit -m "feat: App tool with PID-tree window shepherd"
 ```
 
@@ -2904,19 +2904,19 @@ git commit -m "feat: App tool with PID-tree window shepherd"
 ### Task 11: Pass-through Tools
 
 **Files:**
-- Create: `src/windowsmcp_custom/tools/shell.py`
-- Create: `src/windowsmcp_custom/tools/filesystem.py`
-- Create: `src/windowsmcp_custom/tools/clipboard.py`
-- Create: `src/windowsmcp_custom/tools/process.py`
-- Create: `src/windowsmcp_custom/tools/registry.py`
-- Create: `src/windowsmcp_custom/tools/notification.py`
-- Create: `src/windowsmcp_custom/tools/scrape.py`
+- Create: `src/windowspc_mcp/tools/shell.py`
+- Create: `src/windowspc_mcp/tools/filesystem.py`
+- Create: `src/windowspc_mcp/tools/clipboard.py`
+- Create: `src/windowspc_mcp/tools/process.py`
+- Create: `src/windowspc_mcp/tools/registry.py`
+- Create: `src/windowspc_mcp/tools/notification.py`
+- Create: `src/windowspc_mcp/tools/scrape.py`
 
 These tools pass through without confinement. Each follows the same pattern.
 
 - [ ] **Step 1: Implement all pass-through tools**
 
-Create `src/windowsmcp_custom/tools/shell.py`:
+Create `src/windowspc_mcp/tools/shell.py`:
 ```python
 """PowerShell MCP tool — unconfined, screen-independent."""
 
@@ -2957,7 +2957,7 @@ def register(mcp, *, get_display_manager, get_confinement):
             return f"Failed to execute: {e}"
 ```
 
-Create `src/windowsmcp_custom/tools/filesystem.py`:
+Create `src/windowspc_mcp/tools/filesystem.py`:
 ```python
 """FileSystem MCP tool — unconfined, screen-independent."""
 
@@ -3032,7 +3032,7 @@ def register(mcp, *, get_display_manager, get_confinement):
             return f"FileSystem error: {e}"
 ```
 
-Create `src/windowsmcp_custom/tools/clipboard.py`:
+Create `src/windowspc_mcp/tools/clipboard.py`:
 ```python
 """Clipboard MCP tool — unconfined, shared desktop clipboard."""
 
@@ -3074,7 +3074,7 @@ def register(mcp, *, get_display_manager, get_confinement):
             return f"Clipboard error: {e}"
 ```
 
-Create `src/windowsmcp_custom/tools/process.py`:
+Create `src/windowspc_mcp/tools/process.py`:
 ```python
 """Process MCP tool — unconfined, screen-independent."""
 
@@ -3132,7 +3132,7 @@ def register(mcp, *, get_display_manager, get_confinement):
             return f"Unknown action: {action}"
 ```
 
-Create `src/windowsmcp_custom/tools/registry.py`:
+Create `src/windowspc_mcp/tools/registry.py`:
 ```python
 """Registry MCP tool — unconfined, screen-independent."""
 
@@ -3208,7 +3208,7 @@ def register(mcp, *, get_display_manager, get_confinement):
             return f"Registry error: {e}"
 ```
 
-Create `src/windowsmcp_custom/tools/notification.py`:
+Create `src/windowspc_mcp/tools/notification.py`:
 ```python
 """Notification MCP tool — unconfined, screen-independent."""
 
@@ -3245,7 +3245,7 @@ def register(mcp, *, get_display_manager, get_confinement):
             return f"Notification failed: {e}"
 ```
 
-Create `src/windowsmcp_custom/tools/scrape.py`:
+Create `src/windowspc_mcp/tools/scrape.py`:
 ```python
 """Scrape MCP tool — unconfined, web fetch only (no browser DOM extraction)."""
 
@@ -3275,10 +3275,10 @@ def register(mcp, *, get_display_manager, get_confinement):
 - [ ] **Step 2: Commit**
 
 ```bash
-git add src/windowsmcp_custom/tools/shell.py src/windowsmcp_custom/tools/filesystem.py \
-  src/windowsmcp_custom/tools/clipboard.py src/windowsmcp_custom/tools/process.py \
-  src/windowsmcp_custom/tools/registry.py src/windowsmcp_custom/tools/notification.py \
-  src/windowsmcp_custom/tools/scrape.py
+git add src/windowspc_mcp/tools/shell.py src/windowspc_mcp/tools/filesystem.py \
+  src/windowspc_mcp/tools/clipboard.py src/windowspc_mcp/tools/process.py \
+  src/windowspc_mcp/tools/registry.py src/windowspc_mcp/tools/notification.py \
+  src/windowspc_mcp/tools/scrape.py
 git commit -m "feat: pass-through tools — PowerShell, FileSystem, Clipboard, Process, Registry, Notification, Scrape"
 ```
 
@@ -3287,11 +3287,11 @@ git commit -m "feat: pass-through tools — PowerShell, FileSystem, Clipboard, P
 ### Task 12: Multi Tools
 
 **Files:**
-- Create: `src/windowsmcp_custom/tools/multi.py`
+- Create: `src/windowspc_mcp/tools/multi.py`
 
 - [ ] **Step 1: Implement MultiSelect and MultiEdit**
 
-Create `src/windowsmcp_custom/tools/multi.py`:
+Create `src/windowspc_mcp/tools/multi.py`:
 ```python
 """MultiSelect and MultiEdit MCP tools — confined to agent screen."""
 
@@ -3299,7 +3299,7 @@ import time
 import logging
 from fastmcp import Context
 
-from windowsmcp_custom.confinement.engine import ConfinementError
+from windowspc_mcp.confinement.engine import ConfinementError
 
 logger = logging.getLogger(__name__)
 
@@ -3321,7 +3321,7 @@ def register(mcp, *, get_display_manager, get_confinement):
         ctx: Context = None,
     ) -> str:
         ce = get_confinement()
-        from windowsmcp_custom.uia.controls import click_at
+        from windowspc_mcp.uia.controls import click_at
 
         clicked = 0
         for pos in positions:
@@ -3350,7 +3350,7 @@ def register(mcp, *, get_display_manager, get_confinement):
         ctx: Context = None,
     ) -> str:
         ce = get_confinement()
-        from windowsmcp_custom.uia.controls import click_at, type_text
+        from windowspc_mcp.uia.controls import click_at, type_text
 
         filled = 0
         for field in fields:
@@ -3375,7 +3375,7 @@ def register(mcp, *, get_display_manager, get_confinement):
 - [ ] **Step 2: Commit**
 
 ```bash
-git add src/windowsmcp_custom/tools/multi.py
+git add src/windowspc_mcp/tools/multi.py
 git commit -m "feat: MultiSelect and MultiEdit tools with confinement"
 ```
 
@@ -3384,11 +3384,11 @@ git commit -m "feat: MultiSelect and MultiEdit tools with confinement"
 ### Task 13: State Machine
 
 **Files:**
-- Create: `src/windowsmcp_custom/server.py`
+- Create: `src/windowspc_mcp/server.py`
 
 - [ ] **Step 1: Implement server state machine**
 
-Create `src/windowsmcp_custom/server.py`:
+Create `src/windowspc_mcp/server.py`:
 ```python
 """Server state machine and lifecycle management."""
 
@@ -3465,7 +3465,7 @@ class ServerStateManager:
 - [ ] **Step 2: Commit**
 
 ```bash
-git add src/windowsmcp_custom/server.py
+git add src/windowspc_mcp/server.py
 git commit -m "feat: server state machine with lifecycle transitions"
 ```
 
@@ -3474,14 +3474,14 @@ git commit -m "feat: server state machine with lifecycle transitions"
 ### Task 14: Server Integration — Wire Everything Together
 
 **Files:**
-- Modify: `src/windowsmcp_custom/__main__.py`
-- Modify: `src/windowsmcp_custom/tools/__init__.py`
+- Modify: `src/windowspc_mcp/__main__.py`
+- Modify: `src/windowspc_mcp/tools/__init__.py`
 
 - [ ] **Step 1: Update entry point to integrate all components**
 
-Rewrite `src/windowsmcp_custom/__main__.py`:
+Rewrite `src/windowspc_mcp/__main__.py`:
 ```python
-"""Entry point for the WindowsMCP Custom server."""
+"""Entry point for the WindowsPC-MCP server."""
 
 import asyncio
 import logging
@@ -3489,11 +3489,11 @@ import click
 from fastmcp import FastMCP
 from contextlib import asynccontextmanager
 
-from windowsmcp_custom.display.manager import DisplayManager
-from windowsmcp_custom.confinement.engine import ConfinementEngine
-from windowsmcp_custom.confinement.bounds import DisplayChangeListener
-from windowsmcp_custom.server import ServerStateManager, ServerState
-from windowsmcp_custom.tools import register_all
+from windowspc_mcp.display.manager import DisplayManager
+from windowspc_mcp.confinement.engine import ConfinementEngine
+from windowspc_mcp.confinement.bounds import DisplayChangeListener
+from windowspc_mcp.server import ServerStateManager, ServerState
+from windowspc_mcp.tools import register_all
 
 logging.basicConfig(level=logging.INFO, format="%(name)s %(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -3536,7 +3536,7 @@ async def lifespan(app: FastMCP):
                 state_manager.transition(ServerState.DEGRADED, "agent display lost")
 
     def on_session_change(event_type):
-        from windowsmcp_custom.confinement.bounds import WTS_SESSION_LOCK, WTS_SESSION_UNLOCK
+        from windowspc_mcp.confinement.bounds import WTS_SESSION_LOCK, WTS_SESSION_UNLOCK
         if event_type == WTS_SESSION_LOCK:
             state_manager.transition(ServerState.DEGRADED, "session locked")
         elif event_type == WTS_SESSION_UNLOCK:
@@ -3562,9 +3562,9 @@ async def lifespan(app: FastMCP):
 
 
 mcp = FastMCP(
-    name="windowsmcp-custom",
+    name="windowspc-mcp",
     instructions=(
-        "WindowsMCP Custom provides tools to interact with a confined virtual display. "
+        "WindowsPC-MCP provides tools to interact with a confined virtual display. "
         "The agent operates on a dedicated virtual screen and cannot interact with the "
         "user's physical screens via GUI tools.\n\n"
         "IMPORTANT: Call CreateScreen first to set up your virtual display before using "
@@ -3593,7 +3593,7 @@ register_all(mcp, get_display_manager=_get_display_manager, get_confinement=_get
 @click.option("--host", default="localhost", type=str)
 @click.option("--port", default=8000, type=int)
 def main(transport: str, host: str, port: int):
-    """Start the WindowsMCP Custom server."""
+    """Start the WindowsPC-MCP server."""
     mcp.run(transport=transport, host=host, port=port, show_banner=False)
 
 
@@ -3605,7 +3605,7 @@ if __name__ == "__main__":
 
 ```bash
 uv run python -c "
-from windowsmcp_custom.__main__ import mcp
+from windowspc_mcp.__main__ import mcp
 print(f'Server: {mcp.name}')
 print(f'Tools registered: {len(mcp._tool_manager._tools)}')
 for name in sorted(mcp._tool_manager._tools.keys()):
@@ -3618,7 +3618,7 @@ Expected: Server name + list of all 20 tools.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/windowsmcp_custom/__main__.py
+git add src/windowspc_mcp/__main__.py
 git commit -m "feat: wire all components together — server integration"
 ```
 
@@ -3627,19 +3627,19 @@ git commit -m "feat: wire all components together — server integration"
 ### Task 15: IPC Layer (Stub for UI Communication)
 
 **Files:**
-- Create: `src/windowsmcp_custom/ipc/__init__.py`
-- Create: `src/windowsmcp_custom/ipc/status.py`
-- Create: `src/windowsmcp_custom/ipc/frames.py`
-- Create: `src/windowsmcp_custom/ipc/commands.py`
+- Create: `src/windowspc_mcp/ipc/__init__.py`
+- Create: `src/windowspc_mcp/ipc/status.py`
+- Create: `src/windowspc_mcp/ipc/frames.py`
+- Create: `src/windowspc_mcp/ipc/commands.py`
 
 - [ ] **Step 1: Implement IPC stubs**
 
-Create `src/windowsmcp_custom/ipc/__init__.py`:
+Create `src/windowspc_mcp/ipc/__init__.py`:
 ```python
 """IPC layer for communication between MCP server and Management UI."""
 ```
 
-Create `src/windowsmcp_custom/ipc/status.py`:
+Create `src/windowspc_mcp/ipc/status.py`:
 ```python
 """Named pipe server for publishing status updates to the UI."""
 
@@ -3689,7 +3689,7 @@ class StatusPublisher:
             time.sleep(1.0)
 ```
 
-Create `src/windowsmcp_custom/ipc/frames.py`:
+Create `src/windowspc_mcp/ipc/frames.py`:
 ```python
 """Shared memory frame buffer for delivering screenshots to the UI viewer.
 
@@ -3718,7 +3718,7 @@ class FrameBuffer:
         return self._latest_frame
 ```
 
-Create `src/windowsmcp_custom/ipc/commands.py`:
+Create `src/windowspc_mcp/ipc/commands.py`:
 ```python
 """Named pipe command receiver for UI → Server communication.
 
@@ -3749,7 +3749,7 @@ class CommandReceiver:
 - [ ] **Step 2: Commit**
 
 ```bash
-git add src/windowsmcp_custom/ipc/
+git add src/windowspc_mcp/ipc/
 git commit -m "feat: IPC layer stubs — status publisher, frame buffer, command receiver"
 ```
 
@@ -3789,7 +3789,7 @@ STATUS_FILE = Path.home() / ".windowsmcp" / "status.json"
 
 def main():
     app = QApplication(sys.argv)
-    app.setApplicationName("WindowsMCP Custom")
+    app.setApplicationName("WindowsPC-MCP")
 
     toolbar = ToolbarWindow()
     toolbar.show()
@@ -3997,8 +3997,8 @@ class ViewerWindow(QWidget):
     def _capture_frame(self):
         """Capture the agent's virtual display and show it."""
         try:
-            from windowsmcp_custom.display.identity import load_state
-            from windowsmcp_custom.display.capture import capture_region
+            from windowspc_mcp.display.identity import load_state
+            from windowspc_mcp.display.capture import capture_region
             import json
             from pathlib import Path
 
@@ -4074,7 +4074,7 @@ git commit -m "feat: management UI — floating toolbar + interactive viewer"
 
 ```bash
 cd C:/Users/doubi/Claude_Project/WindowsMCP_Custom
-uv run windowsmcp-custom --transport stdio
+uv run windowspc-mcp --transport stdio
 ```
 
 Press Ctrl+C to stop. Verify it starts without errors.
@@ -4084,7 +4084,7 @@ Press Ctrl+C to stop. Verify it starts without errors.
 Run this to add the MCP server to Claude Code settings:
 
 ```bash
-claude mcp add windowsmcp-custom -- uv run --directory "C:/Users/doubi/Claude_Project/WindowsMCP_Custom" windowsmcp-custom
+claude mcp add windowspc-mcp -- uv run --directory "C:/Users/doubi/Claude_Project/WindowsMCP_Custom" windowspc-mcp
 ```
 
 - [ ] **Step 3: Verify MCP registration**
@@ -4093,7 +4093,7 @@ claude mcp add windowsmcp-custom -- uv run --directory "C:/Users/doubi/Claude_Pr
 claude mcp list
 ```
 
-Expected: `windowsmcp-custom` appears in the list.
+Expected: `windowspc-mcp` appears in the list.
 
 - [ ] **Step 4: Test E2E with Claude Code**
 

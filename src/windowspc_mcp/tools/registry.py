@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from windowsmcp_custom.confinement.decorators import guarded_tool, with_tool_name
+from windowspc_mcp.confinement.decorators import guarded_tool, with_tool_name
 
 
 # Map hive name strings to winreg constants

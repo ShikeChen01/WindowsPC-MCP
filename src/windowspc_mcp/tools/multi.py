@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 
-from windowsmcp_custom.confinement.decorators import guarded_tool, with_tool_name
+from windowspc_mcp.confinement.decorators import guarded_tool, with_tool_name
 
 
 def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None, get_input_service=None):
@@ -45,8 +45,8 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
     @guarded_tool(get_guard)
     @with_tool_name("MultiEdit")
     def multi_edit(fields: list) -> str:
-        from windowsmcp_custom.uia.controls import click_at, type_text
-        from windowsmcp_custom.confinement.engine import ConfinementError
+        from windowspc_mcp.uia.controls import click_at, type_text
+        from windowspc_mcp.confinement.engine import ConfinementError
 
         ce = get_confinement()
         done = 0

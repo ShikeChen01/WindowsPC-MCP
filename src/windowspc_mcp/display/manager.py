@@ -98,7 +98,7 @@ class DisplayManager:
     def check_driver(self) -> bool:
         """Return True if the Parsec VDD driver is present and accessible."""
         try:
-            from windowsmcp_custom.display.driver import ParsecVDD
+            from windowspc_mcp.display.driver import ParsecVDD
 
             vdd = ParsecVDD()
             vdd.close()
@@ -120,8 +120,8 @@ class DisplayManager:
         if self._agent_display is not None:
             raise RuntimeError("Agent display already exists; destroy it first.")
 
-        from windowsmcp_custom.display.driver import ParsecVDD
-        from windowsmcp_custom.display.identity import load_state, save_state, clear_state, PersistedDisplayState
+        from windowspc_mcp.display.driver import ParsecVDD
+        from windowspc_mcp.display.identity import load_state, save_state, clear_state, PersistedDisplayState
 
         # ---- crash recovery ----
         saved = load_state()
@@ -197,7 +197,7 @@ class DisplayManager:
 
     def destroy_display(self) -> None:
         """Migrate windows, remove the virtual display, and clean up state."""
-        from windowsmcp_custom.display.identity import clear_state
+        from windowspc_mcp.display.identity import clear_state
 
         if self._agent_display is not None:
             self._migrate_windows_to_primary()
@@ -360,7 +360,7 @@ class DisplayManager:
             return
 
         try:
-            from windowsmcp_custom.uia.controls import (
+            from windowspc_mcp.uia.controls import (
                 enumerate_windows,
                 get_window_rect,
                 move_window,

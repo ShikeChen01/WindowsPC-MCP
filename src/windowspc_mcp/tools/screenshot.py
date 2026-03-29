@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from windowsmcp_custom.confinement.decorators import guarded_tool, with_tool_name
+from windowspc_mcp.confinement.decorators import guarded_tool, with_tool_name
 
 
 def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None, get_input_service=None):
@@ -21,7 +21,7 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
     @guarded_tool(get_guard)
     @with_tool_name("Screenshot")
     def screenshot(screen: str = "agent") -> list:
-        from windowsmcp_custom.display.capture import capture_region, image_to_base64
+        from windowspc_mcp.display.capture import capture_region, image_to_base64
 
         dm = get_display_manager()
 
@@ -88,16 +88,16 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
     @guarded_tool(get_guard)
     @with_tool_name("Snapshot")
     def snapshot(screen: str = "agent") -> list:
-        from windowsmcp_custom.display.capture import capture_region, image_to_base64
-        from windowsmcp_custom.uia.controls import (
+        from windowspc_mcp.display.capture import capture_region, image_to_base64
+        from windowspc_mcp.uia.controls import (
             enumerate_windows,
             get_window_rect,
             get_window_title,
             get_window_class,
             is_window_visible,
         )
-        from windowsmcp_custom.tree.service import TreeService
-        from windowsmcp_custom.tree.views import BoundingBox as TreeBoundingBox
+        from windowspc_mcp.tree.service import TreeService
+        from windowspc_mcp.tree.views import BoundingBox as TreeBoundingBox
 
         dm = get_display_manager()
 
@@ -160,7 +160,7 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
                 tree_service = TreeService(screen_bounds=bounds)
                 return tree_service.get_state()
             except Exception:
-                from windowsmcp_custom.tree.views import TreeState
+                from windowspc_mcp.tree.views import TreeState
                 return TreeState()
 
         agent = dm.agent_display

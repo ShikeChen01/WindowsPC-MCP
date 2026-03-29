@@ -1,4 +1,4 @@
-"""Shared test fixtures for WindowsMCP Custom."""
+"""Shared test fixtures for WindowsPC-MCP."""
 
 import pytest
 from dataclasses import dataclass

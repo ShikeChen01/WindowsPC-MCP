@@ -10,7 +10,7 @@ STATUS_FILE = Path.home() / ".windowsmcp" / "status.json"
 
 def main():
     app = QApplication(sys.argv)
-    app.setApplicationName("WindowsMCP Custom")
+    app.setApplicationName("WindowsPC-MCP")
     toolbar = ToolbarWindow()
     toolbar.show()
 

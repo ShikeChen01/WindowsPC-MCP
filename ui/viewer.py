@@ -128,7 +128,7 @@ class ViewerWindow(QWidget):
                 bottom = top + height
 
             # Capture the region using the project's capture module
-            from windowsmcp_custom.display.capture import capture_region
+            from windowspc_mcp.display.capture import capture_region
             img = capture_region(left, top, right, bottom)
 
             # Convert PIL Image -> QPixmap

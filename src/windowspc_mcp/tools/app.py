@@ -6,7 +6,7 @@ import subprocess
 import time
 from typing import Optional
 
-from windowsmcp_custom.confinement.decorators import guarded_tool, with_tool_name
+from windowspc_mcp.confinement.decorators import guarded_tool, with_tool_name
 
 
 def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None, get_input_service=None):
@@ -29,7 +29,7 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
         url: Optional[str] = None,
     ) -> str:
         import psutil
-        from windowsmcp_custom.uia.controls import (
+        from windowspc_mcp.uia.controls import (
             enumerate_windows,
             get_window_rect,
             get_window_pid,

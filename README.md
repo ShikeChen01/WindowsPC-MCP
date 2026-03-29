@@ -1,8 +1,4 @@
-# WindowsMCP Custom
-
-> **Archived.** This repository is now archived. The ideas here are being carried forward as a fork of [Windows-MCP](https://github.com/almosthumane/Windows-MCP). See [Windows-MCP-Custom](https://github.com/ShikeChen01/Windows-MCP-Custom) for the active continuation.
-
----
+# WindowsPC-MCP
 
 ## Inspiration
 
@@ -25,7 +21,7 @@ These aren't edge cases — they're the normal experience of running a desktop a
 
 ## The Solution: Confined Agent Desktop
 
-WindowsMCP Custom creates a **virtual display** using the [Parsec Virtual Display Driver](https://github.com/nomi-san/parsec-vdd) and confines the agent to it at the MCP tool level.
+WindowsPC-MCP creates a **virtual display** using the [Parsec Virtual Display Driver](https://github.com/nomi-san/parsec-vdd) and confines the agent to it at the MCP tool level.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -89,10 +85,10 @@ pip install -e .
 
 ```bash
 # stdio transport (for Claude Desktop / Claude Code)
-windowsmcp-custom --transport stdio
+windowspc-mcp --transport stdio
 
 # SSE transport (for HTTP clients)
-windowsmcp-custom --transport sse --host localhost --port 8000
+windowspc-mcp --transport sse --host localhost --port 8000
 ```
 
 ### Claude Desktop configuration
@@ -102,8 +98,8 @@ Add to your `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "windowsmcp-custom": {
-      "command": "windowsmcp-custom",
+    "windowspc-mcp": {
+      "command": "windowspc-mcp",
       "args": ["--transport", "stdio"]
     }
   }
@@ -125,7 +121,7 @@ Add to your `claude_desktop_config.json`:
 ## Project Structure
 
 ```
-src/windowsmcp_custom/
+src/windowspc_mcp/
 ├── __main__.py              Entry point, FastMCP setup, lifespan
 ├── server.py                ServerStateManager, state machine
 ├── confinement/

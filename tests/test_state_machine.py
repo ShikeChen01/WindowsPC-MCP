@@ -1,5 +1,5 @@
 import pytest
-from windowsmcp_custom.server import ServerStateManager, ServerState
+from windowspc_mcp.server import ServerStateManager, ServerState
 
 
 class TestServerStateManager:

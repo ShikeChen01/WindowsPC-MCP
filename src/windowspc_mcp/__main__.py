@@ -1,4 +1,4 @@
-"""Entry point for the WindowsMCP Custom server."""
+"""Entry point for the WindowsPC-MCP server."""
 
 import logging
 from contextlib import asynccontextmanager
@@ -8,18 +8,18 @@ from typing import Optional
 import click
 from fastmcp import FastMCP
 
-from windowsmcp_custom.display.manager import DisplayManager
-from windowsmcp_custom.confinement.engine import ConfinementEngine
-from windowsmcp_custom.confinement.bounds import (
+from windowspc_mcp.display.manager import DisplayManager
+from windowspc_mcp.confinement.engine import ConfinementEngine
+from windowspc_mcp.confinement.bounds import (
     DisplayChangeListener,
     WTS_SESSION_LOCK,
     WTS_SESSION_UNLOCK,
 )
-from windowsmcp_custom.confinement.guard import ToolGuard
-from windowsmcp_custom.server import ServerStateManager, ServerState
-from windowsmcp_custom.ipc.status import StatusPublisher
-from windowsmcp_custom.tools import register_all
-from windowsmcp_custom.input.service import AgentInputService
+from windowspc_mcp.confinement.guard import ToolGuard
+from windowspc_mcp.server import ServerStateManager, ServerState
+from windowspc_mcp.ipc.status import StatusPublisher
+from windowspc_mcp.tools import register_all
+from windowspc_mcp.input.service import AgentInputService
 
 logger = logging.getLogger(__name__)
 
@@ -222,9 +222,9 @@ async def lifespan(app: FastMCP):
 # ---------------------------------------------------------------------------
 
 mcp = FastMCP(
-    name="windowsmcp-custom",
+    name="windowspc-mcp",
     instructions=(
-        "WindowsMCP Custom provides tools to interact with a confined virtual display. "
+        "WindowsPC-MCP provides tools to interact with a confined virtual display. "
         "The agent operates on a dedicated virtual screen isolated from the user's physical monitors. "
         "Always call CreateScreen first to set up the agent display before using any GUI tools. "
         "All coordinate arguments are relative to the virtual screen (top-left is 0,0). "
@@ -264,7 +264,7 @@ register_all(
 @click.option("--host", default="localhost", type=str, help="Host to bind to (sse only).")
 @click.option("--port", default=8000, type=int, help="Port to listen on (sse only).")
 def main(transport: str, host: str, port: int) -> None:
-    """Start the WindowsMCP Custom server."""
+    """Start the WindowsPC-MCP server."""
     kwargs = {"transport": transport, "show_banner": False}
     if transport == "sse":
         kwargs["host"] = host

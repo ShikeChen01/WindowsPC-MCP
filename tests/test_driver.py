@@ -2,7 +2,7 @@
 
 import pytest
 from unittest.mock import patch, MagicMock
-from windowsmcp_custom.display.driver import (
+from windowspc_mcp.display.driver import (
     ParsecVDD,
     VDD_IOCTL_ADD,
     VDD_IOCTL_REMOVE,
@@ -21,7 +21,7 @@ class TestParseVDDConstants:
 
 
 class TestParseVDDOpenHandle:
-    @patch("windowsmcp_custom.display.driver.SetupDiGetClassDevsA")
+    @patch("windowspc_mcp.display.driver.SetupDiGetClassDevsA")
     def test_raises_when_driver_not_found(self, mock_setup):
         mock_setup.return_value = -1  # INVALID_HANDLE_VALUE
         with pytest.raises(OSError, match="Could not find Parsec VDD"):
@@ -29,12 +29,12 @@ class TestParseVDDOpenHandle:
 
 
 class TestParseVDDLifecycle:
-    @patch("windowsmcp_custom.display.driver.open_device_handle")
+    @patch("windowspc_mcp.display.driver.open_device_handle")
     def test_context_manager_opens_and_closes(self, mock_open):
         mock_handle = MagicMock()
         mock_open.return_value = mock_handle
-        with patch("windowsmcp_custom.display.driver.vdd_update"):
-            with patch("windowsmcp_custom.display.driver.CloseHandle") as mock_close:
+        with patch("windowspc_mcp.display.driver.vdd_update"):
+            with patch("windowspc_mcp.display.driver.CloseHandle") as mock_close:
                 vdd = ParsecVDD()
                 vdd.close()
                 mock_close.assert_called_once_with(mock_handle)

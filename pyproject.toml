@@ -1,5 +1,5 @@
 [project]
-name = "windowsmcp-custom"
+name = "windowspc-mcp"
 version = "0.1.0"
 description = "Confined Windows MCP server with virtual display isolation for AI agents."
 requires-python = ">=3.12"
@@ -24,7 +24,7 @@ dev = [
 ]
 
 [project.scripts]
-windowsmcp-custom = "windowsmcp_custom.__main__:main"
+windowspc-mcp = "windowspc_mcp.__main__:main"
 
 [build-system]
 requires = ["setuptools>=61"]
