@@ -7,15 +7,13 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from windowsmcp_custom.confinement.errors import ConfinementError  # re-export
+
 
 class ActionType(Enum):
     READ = "read"
     WRITE = "write"
     UNCONFINED = "unconfined"
-
-
-class ConfinementError(Exception):
-    """Raised when an action violates confinement bounds."""
 
 
 @dataclass

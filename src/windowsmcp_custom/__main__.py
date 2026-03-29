@@ -19,6 +19,7 @@ from windowsmcp_custom.confinement.guard import ToolGuard
 from windowsmcp_custom.server import ServerStateManager, ServerState
 from windowsmcp_custom.ipc.status import StatusPublisher
 from windowsmcp_custom.tools import register_all
+from windowsmcp_custom.input.service import AgentInputService
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,7 @@ class AppContext:
     display_manager: DisplayManager
     confinement: ConfinementEngine
     guard: ToolGuard
+    input_service: Optional[AgentInputService] = None
     status_publisher: Optional[StatusPublisher] = None
     display_listener: Optional[DisplayChangeListener] = None
 
@@ -65,6 +67,10 @@ def _get_guard() -> Optional[ToolGuard]:
     return _ctx.guard if _ctx is not None else None
 
 
+def _get_input_service() -> Optional[AgentInputService]:
+    return _ctx.input_service if _ctx else None
+
+
 # ---------------------------------------------------------------------------
 # Lifespan
 # ---------------------------------------------------------------------------
@@ -84,12 +90,14 @@ async def lifespan(app: FastMCP):
     display_manager = DisplayManager()
     confinement = ConfinementEngine()
     guard = ToolGuard(state_manager, confinement)
+    input_service = AgentInputService(agent_bounds_fn=lambda: confinement.bounds)
 
     _ctx = AppContext(
         state_manager=state_manager,
         display_manager=display_manager,
         confinement=confinement,
         guard=guard,
+        input_service=input_service,
     )
 
     # --- Check for Parsec VDD driver ---
@@ -237,6 +245,7 @@ register_all(
     get_confinement=_get_confinement,
     get_state_manager=_get_state_manager,
     get_guard=_get_guard,
+    get_input_service=_get_input_service,
 )
 
 

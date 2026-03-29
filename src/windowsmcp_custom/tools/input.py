@@ -49,7 +49,7 @@ def _parse_vk(key: str) -> int:
     raise ValueError(f"Unknown key: {key!r}")
 
 
-def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None):
+def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None, get_input_service=None):
     """Register input tools."""
 
     @mcp.tool(

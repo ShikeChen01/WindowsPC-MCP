@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 
-def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None):
+def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None, get_input_service=None):
     """Register screenshot tools."""
 
     @mcp.tool(

@@ -53,7 +53,7 @@ def _parse_key(key: str):
     return hive, subkey
 
 
-def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None):
+def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None, get_input_service=None):
     """Register the Registry tool."""
 
     @mcp.tool(
