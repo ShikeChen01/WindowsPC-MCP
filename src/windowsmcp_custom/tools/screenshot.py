@@ -80,6 +80,7 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
         name="Snapshot",
         description=(
             "Capture a screenshot and list visible windows with titles, positions, and class names. "
+            "Also extracts interactive and scrollable UI elements with labels for use with Click/Type. "
             "screen: same as Screenshot — 'agent' (default), 'all', or monitor index. "
             "Window positions are agent-relative when capturing the agent screen."
         ),
@@ -95,6 +96,8 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
             get_window_class,
             is_window_visible,
         )
+        from windowsmcp_custom.tree.service import TreeService
+        from windowsmcp_custom.tree.views import BoundingBox as TreeBoundingBox
 
         dm = get_display_manager()
 
@@ -145,6 +148,21 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
                 return "  (no visible windows)"
             return "\n".join(windows)
 
+        def _get_tree_state(mon):
+            """Extract UI tree state for a monitor's bounds."""
+            try:
+                bounds = TreeBoundingBox(
+                    left=mon.left,
+                    top=mon.top,
+                    right=mon.right,
+                    bottom=mon.bottom,
+                )
+                tree_service = TreeService(screen_bounds=bounds)
+                return tree_service.get_state()
+            except Exception:
+                from windowsmcp_custom.tree.views import TreeState
+                return TreeState()
+
         agent = dm.agent_display
 
         if screen == "agent":
@@ -152,8 +170,22 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
                 return [{"type": "text", "data": "Error: no agent screen — call CreateScreen first."}]
             agent.is_agent = True
             img_entry = _capture_one(agent)
-            win_text = "Windows on agent screen:\n" + _window_list(agent)
-            return [img_entry, {"type": "text", "data": img_entry["description"]}, {"type": "text", "data": win_text}]
+            window_list = _window_list(agent)
+            tree_state = _get_tree_state(agent)
+            dm._latest_tree_state = tree_state
+            results = [
+                img_entry,
+                {"type": "text", "data": img_entry["description"]},
+                {
+                    "type": "text",
+                    "data": (
+                        f"Windows on agent screen:\n{window_list}\n\n"
+                        f"Interactive Elements:\n{tree_state.interactive_elements_to_string()}\n\n"
+                        f"Scrollable Elements:\n{tree_state.scrollable_elements_to_string()}"
+                    ),
+                },
+            ]
+            return results
 
         elif screen == "all":
             monitors = dm.enumerate_monitors()
@@ -164,8 +196,22 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
                 if agent is not None and mon.device_name == agent.device_name:
                     mon.is_agent = True
                 entry = _capture_one(mon)
-                win_text = f"Windows on {mon.device_name}:\n" + _window_list(mon)
-                results.extend([entry, {"type": "text", "data": entry["description"]}, {"type": "text", "data": win_text}])
+                window_list = _window_list(mon)
+                tree_state = _get_tree_state(mon)
+                if agent is not None and mon.device_name == agent.device_name:
+                    dm._latest_tree_state = tree_state
+                results.extend([
+                    entry,
+                    {"type": "text", "data": entry["description"]},
+                    {
+                        "type": "text",
+                        "data": (
+                            f"Windows on {mon.device_name}:\n{window_list}\n\n"
+                            f"Interactive Elements:\n{tree_state.interactive_elements_to_string()}\n\n"
+                            f"Scrollable Elements:\n{tree_state.scrollable_elements_to_string()}"
+                        ),
+                    },
+                ])
             return results
 
         else:
@@ -182,5 +228,20 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
             if agent is not None and mon.device_name == agent.device_name:
                 mon.is_agent = True
             entry = _capture_one(mon)
-            win_text = f"Windows on {mon.device_name}:\n" + _window_list(mon)
-            return [entry, {"type": "text", "data": entry["description"]}, {"type": "text", "data": win_text}]
+            window_list = _window_list(mon)
+            tree_state = _get_tree_state(mon)
+            if agent is not None and mon.device_name == agent.device_name:
+                dm._latest_tree_state = tree_state
+            results = [
+                entry,
+                {"type": "text", "data": entry["description"]},
+                {
+                    "type": "text",
+                    "data": (
+                        f"Windows on {mon.device_name}:\n{window_list}\n\n"
+                        f"Interactive Elements:\n{tree_state.interactive_elements_to_string()}\n\n"
+                        f"Scrollable Elements:\n{tree_state.scrollable_elements_to_string()}"
+                    ),
+                },
+            ]
+            return results

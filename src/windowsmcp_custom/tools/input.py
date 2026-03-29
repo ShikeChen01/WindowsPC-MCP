@@ -13,23 +13,46 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
     @mcp.tool(
         name="Click",
         description=(
-            "Click at agent-relative coordinates (x, y). "
+            "Click at agent-relative coordinates (x, y), or by element label from Snapshot. "
+            "label: integer element ID from Snapshot's Interactive/Scrollable Elements list; "
+            "if provided, x/y are ignored and coordinates are resolved from the latest tree state. "
             "button: 'left' (default), 'right', or 'middle'. "
             "clicks: number of clicks (default 1)."
         ),
     )
     @guarded_tool(get_guard)
     @with_tool_name("Click")
-    def click(x: int, y: int, button: str = "left", clicks: int = 1) -> str:
+    def click(x: int = None, y: int = None, button: str = "left", clicks: int = 1, label: int = None) -> str:
         ce = get_confinement()
-        abs_x, abs_y = ce.validate_and_translate(x, y)
+        if label is not None:
+            dm = get_display_manager()
+            tree_state = getattr(dm, "_latest_tree_state", None)
+            if tree_state is None:
+                return "Error: no tree state available — call Snapshot first."
+            try:
+                abs_x, abs_y = tree_state.get_coordinates_from_label(label)
+            except IndexError as e:
+                return f"Error: {e}"
+            # Translate absolute coords to agent-relative for confinement validation
+            agent = dm.agent_display
+            if agent is not None:
+                rel_x, rel_y = agent.to_relative(abs_x, abs_y)
+            else:
+                rel_x, rel_y = abs_x, abs_y
+            abs_x, abs_y = ce.validate_and_translate(rel_x, rel_y)
+        else:
+            if x is None or y is None:
+                return "Error: either label or both x and y must be provided."
+            abs_x, abs_y = ce.validate_and_translate(x, y)
         svc = get_input_service()
         return svc.click(abs_x, abs_y, button, clicks)
 
     @mcp.tool(
         name="Type",
         description=(
-            "Type text, optionally clicking at (x, y) first. "
+            "Type text, optionally clicking at (x, y) or an element label first. "
+            "label: integer element ID from Snapshot's Interactive Elements list; "
+            "if provided, x/y are ignored and coordinates are resolved from the latest tree state. "
             "clear: replace existing content. "
             "caret_position: 'start'/'end'/'idle'. "
             "press_enter: submit after typing."
@@ -44,10 +67,26 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
         clear: bool = False,
         caret_position: str = "idle",
         press_enter: bool = False,
+        label: int = None,
     ) -> str:
         ce = get_confinement()
         abs_x = abs_y = None
-        if x is not None and y is not None:
+        if label is not None:
+            dm = get_display_manager()
+            tree_state = getattr(dm, "_latest_tree_state", None)
+            if tree_state is None:
+                return "Error: no tree state available — call Snapshot first."
+            try:
+                lx, ly = tree_state.get_coordinates_from_label(label)
+            except IndexError as e:
+                return f"Error: {e}"
+            agent = dm.agent_display
+            if agent is not None:
+                rel_x, rel_y = agent.to_relative(lx, ly)
+            else:
+                rel_x, rel_y = lx, ly
+            abs_x, abs_y = ce.validate_and_translate(rel_x, rel_y)
+        elif x is not None and y is not None:
             abs_x, abs_y = ce.validate_and_translate(x, y)
         if isinstance(clear, str):
             clear = clear.lower() in ("true", "1", "yes")
