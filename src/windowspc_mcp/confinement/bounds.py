@@ -17,6 +17,7 @@ HWND_MESSAGE = ctypes.wintypes.HWND(-3)
 
 _user32 = ctypes.windll.user32
 _kernel32 = ctypes.windll.kernel32
+_kernel32.GetModuleHandleW.restype = ctypes.c_void_p
 _wtsapi32 = ctypes.windll.wtsapi32
 
 WNDPROC = ctypes.WINFUNCTYPE(
@@ -26,6 +27,22 @@ WNDPROC = ctypes.WINFUNCTYPE(
     ctypes.wintypes.WPARAM,
     ctypes.wintypes.LPARAM,
 )
+
+
+class WNDCLASS(ctypes.Structure):
+    """WNDCLASSW — not available in ctypes.wintypes on Python 3.12+."""
+    _fields_ = [
+        ("style", ctypes.c_uint),
+        ("lpfnWndProc", ctypes.c_void_p),
+        ("cbClsExtra", ctypes.c_int),
+        ("cbWndExtra", ctypes.c_int),
+        ("hInstance", ctypes.c_size_t),
+        ("hIcon", ctypes.c_size_t),
+        ("hCursor", ctypes.c_size_t),
+        ("hbrBackground", ctypes.c_size_t),
+        ("lpszMenuName", ctypes.c_wchar_p),
+        ("lpszClassName", ctypes.c_wchar_p),
+    ]
 
 
 class DisplayChangeListener:
@@ -84,9 +101,44 @@ class DisplayChangeListener:
 
         wndproc_cb = WNDPROC(_wndproc)
 
-        wndclass = ctypes.wintypes.WNDCLASS()
-        wndclass.lpfnWndProc = wndproc_cb
-        wndclass.hInstance = _kernel32.GetModuleHandleW(None)
+        _kernel32.GetModuleHandleW.restype = ctypes.c_void_p
+        _kernel32.GetModuleHandleW.argtypes = [ctypes.wintypes.LPCWSTR]
+
+        _user32.DefWindowProcW.restype = ctypes.c_long
+        _user32.DefWindowProcW.argtypes = [
+            ctypes.wintypes.HWND,    # hWnd
+            ctypes.c_uint,           # Msg
+            ctypes.wintypes.WPARAM,  # wParam
+            ctypes.wintypes.LPARAM,  # lParam
+        ]
+
+        _user32.RegisterClassW.restype = ctypes.wintypes.ATOM
+        _user32.RegisterClassW.argtypes = [ctypes.c_void_p]
+
+        _user32.UnregisterClassW.restype = ctypes.wintypes.BOOL
+        _user32.UnregisterClassW.argtypes = [ctypes.wintypes.LPCWSTR, ctypes.c_void_p]
+
+        _user32.CreateWindowExW.restype = ctypes.wintypes.HWND
+        _user32.CreateWindowExW.argtypes = [
+            ctypes.wintypes.DWORD,   # dwExStyle
+            ctypes.wintypes.LPCWSTR, # lpClassName
+            ctypes.wintypes.LPCWSTR, # lpWindowName
+            ctypes.wintypes.DWORD,   # dwStyle
+            ctypes.c_int,            # x
+            ctypes.c_int,            # y
+            ctypes.c_int,            # nWidth
+            ctypes.c_int,            # nHeight
+            ctypes.wintypes.HWND,    # hWndParent
+            ctypes.wintypes.HMENU,   # hMenu
+            ctypes.c_void_p,         # hInstance
+            ctypes.c_void_p,         # lpParam
+        ]
+
+        hinstance = _kernel32.GetModuleHandleW(None) or 0
+
+        wndclass = WNDCLASS()
+        wndclass.lpfnWndProc = ctypes.cast(wndproc_cb, ctypes.c_void_p)
+        wndclass.hInstance = hinstance
         wndclass.lpszClassName = class_name
 
         atom = _user32.RegisterClassW(ctypes.byref(wndclass))
@@ -101,7 +153,7 @@ class DisplayChangeListener:
             0, 0, 0, 0, 0,
             HWND_MESSAGE,
             None,
-            _kernel32.GetModuleHandleW(None),
+            hinstance,
             None,
         )
         if not hwnd:
@@ -127,4 +179,4 @@ class DisplayChangeListener:
         except Exception:
             pass
         _user32.DestroyWindow(hwnd)
-        _user32.UnregisterClassW(class_name, _kernel32.GetModuleHandleW(None))
+        _user32.UnregisterClassW(class_name, hinstance)

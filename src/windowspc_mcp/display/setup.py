@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import logging
-import shutil
 import subprocess
 import tempfile
 import urllib.request
-import zipfile
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -16,13 +14,9 @@ _VDD_DIR = Path.home() / ".windowspc-mcp" / "vdd"
 
 _RELEASES_URL = "https://api.github.com/repos/nomi-san/parsec-vdd/releases/latest"
 
-# Display device class GUID (standard Windows constant)
-_DISPLAY_CLASS_GUID = "{4D36E968-E325-11CE-BFC1-08002BE10318}"
-_HARDWARE_ID = r"Root\Parsec\VDA"
 
-
-def _find_portable_zip_url() -> str:
-    """Query GitHub releases API for the portable ZIP download URL."""
+def _find_setup_exe_url() -> str:
+    """Query GitHub releases API for the setup EXE download URL."""
     import json
 
     req = urllib.request.Request(
@@ -34,109 +28,56 @@ def _find_portable_zip_url() -> str:
 
     for asset in data.get("assets", []):
         name: str = asset.get("name", "")
-        if name.endswith("-portable.zip"):
+        if name.endswith("-setup.exe") or name.endswith(".exe") and "setup" in name.lower():
             return asset["browser_download_url"]
 
     raise RuntimeError(
-        "Could not find portable ZIP in the latest parsec-vdd release. "
+        "Could not find setup EXE in the latest parsec-vdd release. "
         "Please install manually: https://github.com/nomi-san/parsec-vdd/releases"
     )
 
 
-def _download_and_extract(url: str) -> Path:
-    """Download the portable ZIP and extract to _VDD_DIR. Returns the extraction root."""
+def _download_setup(url: str) -> Path:
+    """Download the setup EXE to _VDD_DIR. Returns the path to the EXE."""
     _VDD_DIR.mkdir(parents=True, exist_ok=True)
 
+    # Derive filename from URL
+    filename = url.rsplit("/", 1)[-1]
+    dest = _VDD_DIR / filename
+
     log.info("Downloading Parsec VDD from %s", url)
-    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
-        tmp_path = Path(tmp.name)
+    urllib.request.urlretrieve(url, str(dest))
+    log.info("Download complete (%d KB)", dest.stat().st_size // 1024)
 
-    try:
-        urllib.request.urlretrieve(url, str(tmp_path))
-        log.info("Download complete (%d KB)", tmp_path.stat().st_size // 1024)
-
-        # Clear old extraction if present
-        if _VDD_DIR.exists():
-            shutil.rmtree(_VDD_DIR)
-        _VDD_DIR.mkdir(parents=True, exist_ok=True)
-
-        with zipfile.ZipFile(tmp_path, "r") as zf:
-            zf.extractall(_VDD_DIR)
-
-        log.info("Extracted to %s", _VDD_DIR)
-    finally:
-        tmp_path.unlink(missing_ok=True)
-
-    return _VDD_DIR
+    return dest
 
 
-def _find_nefconw(base: Path) -> Path:
-    """Locate nefconw.exe under the extraction directory."""
-    candidates = list(base.rglob("nefconw.exe"))
-    if not candidates:
-        raise FileNotFoundError(
-            f"nefconw.exe not found under {base}. "
-            "The Parsec VDD release format may have changed."
-        )
-    return candidates[0]
+def _install_driver(setup_exe: Path) -> None:
+    """Run the Parsec VDD setup EXE with /S (silent) elevated via ShellExecuteW.
 
-
-def _find_inf(base: Path) -> Path:
-    """Locate mm.inf under the extraction directory."""
-    candidates = list(base.rglob("mm.inf"))
-    if not candidates:
-        raise FileNotFoundError(
-            f"mm.inf not found under {base}. "
-            "The Parsec VDD release format may have changed."
-        )
-    return candidates[0]
-
-
-def _install_driver(nefconw: Path, inf: Path) -> None:
-    """Run the three nefconw commands elevated via ShellExecuteW (triggers UAC).
-
-    The commands are:
-      1. Remove any existing device node
-      2. Create a new device node
-      3. Install the driver from the .inf
+    The Inno Setup installer accepts /S (or /SILENT /VERYSILENT) for unattended
+    installation. ShellExecuteW with "runas" triggers a UAC prompt.
     """
     import ctypes
 
     shell32 = ctypes.windll.shell32
 
-    commands = [
-        # Step 1: remove old device node (may fail if none exists — that's OK)
-        (
-            str(nefconw),
-            f"--remove-device-node --hardware-id {_HARDWARE_ID} "
-            f"--class-guid {_DISPLAY_CLASS_GUID}",
-        ),
-        # Step 2: create device node
-        (
-            str(nefconw),
-            f"--create-device-node --class-name Display "
-            f"--class-guid {_DISPLAY_CLASS_GUID} --hardware-id {_HARDWARE_ID}",
-        ),
-        # Step 3: install the driver
-        (
-            str(nefconw),
-            f'--install-driver --inf-path "{inf}"',
-        ),
-    ]
+    log.info("Installing Parsec VDD driver (UAC prompt will appear): %s", setup_exe)
+    # ShellExecuteW with "runas" triggers UAC elevation
+    # /VERYSILENT suppresses all UI; /NORESTART avoids reboots
+    result = shell32.ShellExecuteW(
+        None, "runas", str(setup_exe), "/VERYSILENT /NORESTART", str(setup_exe.parent), 0
+    )
+    if result <= 32:
+        raise RuntimeError(
+            f"VDD installer failed (ShellExecuteW returned {result}). "
+            "You may need to install the Parsec VDD driver manually."
+        )
 
-    for i, (exe, params) in enumerate(commands, 1):
-        log.info("VDD install step %d/3: %s %s", i, exe, params)
-        # ShellExecuteW with "runas" triggers UAC elevation
-        result = shell32.ShellExecuteW(None, "runas", exe, params, str(nefconw.parent), 0)
-        if result <= 32:
-            if i == 1:
-                # Step 1 failure is expected if no prior device node exists
-                log.debug("Step 1 (remove old node) returned %d — probably no prior install", result)
-            else:
-                raise RuntimeError(
-                    f"VDD install step {i} failed (ShellExecuteW returned {result}). "
-                    "You may need to install the Parsec VDD driver manually."
-                )
+    # ShellExecuteW returns immediately; wait for the installer to finish
+    import time
+    log.info("Waiting for installer to complete...")
+    time.sleep(10)
 
 
 def ensure_driver_installed() -> bool:
@@ -160,18 +101,12 @@ def ensure_driver_installed() -> bool:
     log.info("Parsec VDD driver not found — starting automatic setup")
 
     try:
-        url = _find_portable_zip_url()
-        base = _download_and_extract(url)
-        nefconw = _find_nefconw(base)
-        inf = _find_inf(base)
-        _install_driver(nefconw, inf)
+        url = _find_setup_exe_url()
+        setup_exe = _download_setup(url)
+        _install_driver(setup_exe)
     except Exception:
         log.exception("Automatic VDD driver installation failed")
         return False
-
-    # Give Windows a moment to register the new driver
-    import time
-    time.sleep(3)
 
     # Verify
     try:
