@@ -6,6 +6,8 @@ import subprocess
 import time
 from typing import Optional
 
+from windowsmcp_custom.confinement.decorators import guarded_tool, with_tool_name
+
 
 def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None, get_input_service=None):
     """Register the App tool."""
@@ -19,17 +21,13 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
             "Returns the count of windows moved."
         ),
     )
+    @guarded_tool(get_guard)
+    @with_tool_name("App")
     def app(
         name: str,
         args: Optional[list] = None,
         url: Optional[str] = None,
     ) -> str:
-        guard = get_guard() if get_guard is not None else None
-        if guard:
-            err = guard.check("App")
-            if err:
-                return err
-
         import psutil
         from windowsmcp_custom.uia.controls import (
             enumerate_windows,

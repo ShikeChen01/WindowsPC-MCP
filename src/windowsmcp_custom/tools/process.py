@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from windowsmcp_custom.confinement.decorators import guarded_tool, with_tool_name
+
 
 def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None, get_input_service=None):
     """Register the Process tool."""
@@ -16,17 +18,13 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
             "'kill' — terminate by name or pid."
         ),
     )
+    @guarded_tool(get_guard)
+    @with_tool_name("Process")
     def process(
         action: str = "list",
         name: Optional[str] = None,
         pid: Optional[int] = None,
     ) -> str:
-        guard = get_guard() if get_guard is not None else None
-        if guard:
-            err = guard.check("Process")
-            if err:
-                return err
-
         import psutil
 
         action = action.lower().strip()

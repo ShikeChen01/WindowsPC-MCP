@@ -6,6 +6,8 @@ import os
 import shutil
 from typing import Optional
 
+from windowsmcp_custom.confinement.decorators import guarded_tool, with_tool_name
+
 
 def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None, get_input_service=None):
     """Register the FileSystem tool."""
@@ -20,18 +22,14 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
             "destination: target path (for 'copy' and 'move')."
         ),
     )
+    @guarded_tool(get_guard)
+    @with_tool_name("FileSystem")
     def file_system(
         action: str,
         path: str,
         content: Optional[str] = None,
         destination: Optional[str] = None,
     ) -> str:
-        guard = get_guard() if get_guard is not None else None
-        if guard:
-            err = guard.check("FileSystem")
-            if err:
-                return err
-
         action = action.lower().strip()
 
         try:

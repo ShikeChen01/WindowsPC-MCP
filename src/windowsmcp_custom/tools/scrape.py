@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from windowsmcp_custom.confinement.decorators import guarded_tool, with_tool_name
+
 
 def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None, get_input_service=None):
     """Register the Scrape tool."""
@@ -13,13 +15,9 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
             "HTML tags are stripped; plain text is returned."
         ),
     )
+    @guarded_tool(get_guard)
+    @with_tool_name("Scrape")
     def scrape(url: str) -> str:
-        guard = get_guard() if get_guard is not None else None
-        if guard:
-            err = guard.check("Scrape")
-            if err:
-                return err
-
         import urllib.request
         import html
         import re

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from windowsmcp_custom.confinement.decorators import guarded_tool, with_tool_name
+
 
 def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None, get_input_service=None):
     """Register the Clipboard tool."""
@@ -16,13 +18,9 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
             "'set' writes content to the clipboard."
         ),
     )
+    @guarded_tool(get_guard)
+    @with_tool_name("Clipboard")
     def clipboard(action: str = "get", content: Optional[str] = None) -> str:
-        guard = get_guard() if get_guard is not None else None
-        if guard:
-            err = guard.check("Clipboard")
-            if err:
-                return err
-
         action = action.lower().strip()
 
         try:

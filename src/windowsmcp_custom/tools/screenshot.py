@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from windowsmcp_custom.confinement.decorators import guarded_tool, with_tool_name
+
 
 def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None, get_input_service=None):
     """Register screenshot tools."""
@@ -16,13 +18,9 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
             "Returns base64-encoded JPEG image(s)."
         ),
     )
+    @guarded_tool(get_guard)
+    @with_tool_name("Screenshot")
     def screenshot(screen: str = "agent") -> list:
-        guard = get_guard() if get_guard is not None else None
-        if guard:
-            err = guard.check("Screenshot")
-            if err:
-                return err
-
         from windowsmcp_custom.display.capture import capture_region, image_to_base64
 
         dm = get_display_manager()
@@ -86,13 +84,9 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
             "Window positions are agent-relative when capturing the agent screen."
         ),
     )
+    @guarded_tool(get_guard)
+    @with_tool_name("Snapshot")
     def snapshot(screen: str = "agent") -> list:
-        guard = get_guard() if get_guard is not None else None
-        if guard:
-            err = guard.check("Snapshot")
-            if err:
-                return err
-
         from windowsmcp_custom.display.capture import capture_region, image_to_base64
         from windowsmcp_custom.uia.controls import (
             enumerate_windows,

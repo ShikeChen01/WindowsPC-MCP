@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from windowsmcp_custom.confinement.decorators import guarded_tool, with_tool_name
+
 
 # Map hive name strings to winreg constants
 _HIVE_MAP = {
@@ -67,6 +69,8 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
             "value_type: REG_SZ (default), REG_DWORD, REG_QWORD, REG_BINARY, REG_EXPAND_SZ, REG_MULTI_SZ."
         ),
     )
+    @guarded_tool(get_guard)
+    @with_tool_name("Registry")
     def registry(
         action: str,
         key: str,
@@ -74,12 +78,6 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
         value: Optional[str] = None,
         value_type: str = "REG_SZ",
     ) -> str:
-        guard = get_guard() if get_guard is not None else None
-        if guard:
-            err = guard.check("Registry")
-            if err:
-                return err
-
         import winreg
 
         action = action.lower().strip()

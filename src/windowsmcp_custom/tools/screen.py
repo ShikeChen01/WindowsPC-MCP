@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import re
 
+from windowsmcp_custom.confinement.decorators import guarded_tool, with_tool_name
+
 
 def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None, get_input_service=None):
     """Register screen management tools."""
@@ -99,18 +101,14 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
             "Returns an error if more than 5 windows match to prevent accidental bulk moves."
         ),
     )
+    @guarded_tool(get_guard)
+    @with_tool_name("RecoverWindow")
     def recover_window(
         title: str = None,
         pid: int = None,
         process_name: str = None,
         class_name: str = None,
     ) -> str:
-        guard = get_guard() if get_guard is not None else None
-        if guard:
-            err = guard.check("RecoverWindow")
-            if err:
-                return err
-
         from windowsmcp_custom.uia.controls import (
             enumerate_windows,
             get_window_rect,
