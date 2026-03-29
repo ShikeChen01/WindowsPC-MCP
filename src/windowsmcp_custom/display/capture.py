@@ -15,10 +15,24 @@ try:
 except ImportError:
     dxcam = None
 
+# Module-level camera cache
+_dxcam_camera = None
+
 try:
     import mss as mss_module
 except ImportError:
     mss_module = None
+
+
+def _capture_dxcam(left: int, top: int, right: int, bottom: int) -> Image.Image:
+    """Capture using cached dxcam camera."""
+    global _dxcam_camera
+    if _dxcam_camera is None:
+        _dxcam_camera = dxcam.create()
+    frame = _dxcam_camera.grab(region=(left, top, right, bottom))
+    if frame is None:
+        raise RuntimeError("dxcam returned None frame")
+    return Image.fromarray(frame)
 
 
 def capture_region(left: int, top: int, right: int, bottom: int, backend: str = "auto") -> Image.Image:
@@ -30,11 +44,7 @@ def capture_region(left: int, top: int, right: int, bottom: int, backend: str = 
     for name in chain:
         try:
             if name == "dxcam" and dxcam is not None:
-                camera = dxcam.create()
-                frame = camera.grab(region=(left, top, right, bottom))
-                if frame is None:
-                    raise RuntimeError("None frame")
-                return Image.fromarray(frame)
+                return _capture_dxcam(left, top, right, bottom)
             elif name == "mss" and mss_module is not None:
                 with mss_module.mss() as sct:
                     monitor = {

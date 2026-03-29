@@ -24,9 +24,10 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
 
         try:
             result = subprocess.run(
-                ["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
+                ["powershell", "-NoProfile", "-NonInteractive", "-OutputFormat", "Text", "-Command", command],
                 capture_output=True,
-                text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=timeout,
             )
             output = result.stdout
