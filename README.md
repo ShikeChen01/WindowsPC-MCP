@@ -73,7 +73,7 @@ FastMCP Server (__main__.py)
 
 - Windows 10/11
 - Python 3.12+
-- [Parsec Virtual Display Driver](https://github.com/nomi-san/parsec-vdd) installed (one-time)
+- [Parsec Virtual Display Driver](https://github.com/nomi-san/parsec-vdd) — auto-installed on first run if not present (triggers a UAC prompt)
 
 ### Install
 

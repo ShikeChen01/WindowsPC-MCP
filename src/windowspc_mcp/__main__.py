@@ -100,24 +100,33 @@ async def lifespan(app: FastMCP):
         input_service=input_service,
     )
 
-    # --- Check for Parsec VDD driver ---
+    # --- Check for Parsec VDD driver (auto-install if missing) ---
     # Keep state as INIT until CreateScreen is called. If driver is missing,
-    # transition to DRIVER_MISSING so the guard can give appropriate messages.
+    # attempt automatic download and installation before giving up.
     if display_manager.check_driver():
         logger.info(
             "Parsec VDD driver found — server ready for CreateScreen. "
             "Call CreateScreen to activate GUI tools."
         )
-        # Stay in INIT — CreateScreen will transition to READY after display + bounds are set.
     else:
-        state_manager.transition(
-            ServerState.DRIVER_MISSING,
-            reason="Parsec VDD driver not found; install it before calling CreateScreen",
-        )
-        logger.warning(
-            "Parsec VDD driver not found. Install the driver and restart the server. "
-            "Most tools are unavailable until a virtual display is created."
-        )
+        # Attempt automatic install
+        from windowspc_mcp.display.setup import ensure_driver_installed
+
+        if ensure_driver_installed():
+            logger.info(
+                "Parsec VDD driver installed successfully — server ready for CreateScreen. "
+                "Call CreateScreen to activate GUI tools."
+            )
+        else:
+            state_manager.transition(
+                ServerState.DRIVER_MISSING,
+                reason="Parsec VDD driver not found; install it before calling CreateScreen",
+            )
+            logger.warning(
+                "Parsec VDD driver not found and automatic install failed. "
+                "Install the driver manually and restart the server. "
+                "Download from: https://github.com/nomi-san/parsec-vdd/releases"
+            )
 
     # --- Display-change callback ---
 
