@@ -1,6 +1,7 @@
 """Server state machine for managing lifecycle and availability states."""
 
 import logging
+import threading
 from enum import Enum
 from typing import Callable, Optional
 
@@ -25,6 +26,7 @@ class ServerStateManager:
 
     def __init__(self) -> None:
         """Initialize the state manager with INIT state."""
+        self._lock = threading.RLock()
         self._state = ServerState.INIT
         self._state_listeners: list[Callable[[ServerState, ServerState, Optional[str]], None]] = []
         self._degraded_reason: Optional[str] = None
@@ -57,21 +59,25 @@ class ServerStateManager:
             new_state: The target ServerState
             reason: Optional reason for the transition (stored for DEGRADED state)
         """
-        old_state = self._state
-        self._state = new_state
+        with self._lock:
+            old_state = self._state
+            self._state = new_state
 
-        if new_state == ServerState.DEGRADED:
-            self._degraded_reason = reason
-        else:
-            self._degraded_reason = None
+            if new_state == ServerState.DEGRADED:
+                self._degraded_reason = reason
+            else:
+                self._degraded_reason = None
 
-        logger.info(
-            f"State transition: {old_state.value} -> {new_state.value}"
-            + (f" (reason: {reason})" if reason else "")
-        )
+            logger.info(
+                f"State transition: {old_state.value} -> {new_state.value}"
+                + (f" (reason: {reason})" if reason else "")
+            )
 
-        # Call all registered listeners
-        for listener in self._state_listeners:
+            # Snapshot listeners before iterating to avoid holding the lock during callbacks
+            listeners = list(self._state_listeners)
+
+        # Call listeners outside the lock to avoid deadlocks
+        for listener in listeners:
             listener(old_state, new_state, reason)
 
     def add_listener(
@@ -83,7 +89,8 @@ class ServerStateManager:
         Args:
             callback: Function with signature (old_state, new_state, reason)
         """
-        self._state_listeners.append(callback)
+        with self._lock:
+            self._state_listeners.append(callback)
 
     def get_status(self) -> dict:
         """
@@ -92,9 +99,10 @@ class ServerStateManager:
         Returns:
             Dictionary with state, gui_available, gui_write_available, and degraded_reason
         """
-        return {
-            "state": self._state.value,
-            "gui_available": self.is_gui_available,
-            "gui_write_available": self.is_gui_write_available,
-            "degraded_reason": self._degraded_reason,
-        }
+        with self._lock:
+            return {
+                "state": self._state.value,
+                "gui_available": self.is_gui_available,
+                "gui_write_available": self.is_gui_write_available,
+                "degraded_reason": self._degraded_reason,
+            }

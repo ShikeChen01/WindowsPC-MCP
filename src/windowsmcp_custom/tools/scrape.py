@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 
-def register(mcp, *, get_display_manager, get_confinement):
+def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None):
     """Register the Scrape tool."""
 
     @mcp.tool(
@@ -14,6 +14,12 @@ def register(mcp, *, get_display_manager, get_confinement):
         ),
     )
     def scrape(url: str) -> str:
+        guard = get_guard() if get_guard is not None else None
+        if guard:
+            err = guard.check("Scrape")
+            if err:
+                return err
+
         import urllib.request
         import html
         import re

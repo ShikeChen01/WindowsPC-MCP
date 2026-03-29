@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 
 
-def register(mcp, *, get_display_manager, get_confinement):
+def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None):
     """Register the Notification tool."""
 
     @mcp.tool(
@@ -13,6 +13,12 @@ def register(mcp, *, get_display_manager, get_confinement):
         description="Show a Windows toast notification with a title and message.",
     )
     def notification(title: str, message: str) -> str:
+        guard = get_guard() if get_guard is not None else None
+        if guard:
+            err = guard.check("Notification")
+            if err:
+                return err
+
         # Escape single quotes for use inside PowerShell string
         safe_title = title.replace("'", "\\'")
         safe_message = message.replace("'", "\\'")

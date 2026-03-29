@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 
 
-def register(mcp, *, get_display_manager, get_confinement):
+def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None):
     """Register the PowerShell tool."""
 
     @mcp.tool(
@@ -16,6 +16,12 @@ def register(mcp, *, get_display_manager, get_confinement):
         ),
     )
     def power_shell(command: str, timeout: int = 30) -> str:
+        guard = get_guard() if get_guard is not None else None
+        if guard:
+            err = guard.check("PowerShell")
+            if err:
+                return err
+
         timeout = max(1, min(120, int(timeout)))
 
         try:

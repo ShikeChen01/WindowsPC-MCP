@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 
-def register(mcp, *, get_display_manager, get_confinement):
+def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None):
     """Register screenshot tools."""
 
     @mcp.tool(
@@ -17,6 +17,12 @@ def register(mcp, *, get_display_manager, get_confinement):
         ),
     )
     def screenshot(screen: str = "agent") -> list:
+        guard = get_guard() if get_guard is not None else None
+        if guard:
+            err = guard.check("Screenshot")
+            if err:
+                return err
+
         from windowsmcp_custom.display.capture import capture_region, image_to_base64
 
         dm = get_display_manager()
@@ -81,6 +87,12 @@ def register(mcp, *, get_display_manager, get_confinement):
         ),
     )
     def snapshot(screen: str = "agent") -> list:
+        guard = get_guard() if get_guard is not None else None
+        if guard:
+            err = guard.check("Snapshot")
+            if err:
+                return err
+
         from windowsmcp_custom.display.capture import capture_region, image_to_base64
         from windowsmcp_custom.uia.controls import (
             enumerate_windows,

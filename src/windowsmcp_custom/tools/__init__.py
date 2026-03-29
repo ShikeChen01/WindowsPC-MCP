@@ -31,7 +31,13 @@ _MODULES = [
 ]
 
 
-def register_all(mcp, *, get_display_manager, get_confinement):
+def register_all(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None):
     """Register all tool modules with the MCP server."""
     for mod in _MODULES:
-        mod.register(mcp, get_display_manager=get_display_manager, get_confinement=get_confinement)
+        mod.register(
+            mcp,
+            get_display_manager=get_display_manager,
+            get_confinement=get_confinement,
+            get_state_manager=get_state_manager,
+            get_guard=get_guard,
+        )

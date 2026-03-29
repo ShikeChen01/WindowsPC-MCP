@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 
-def register(mcp, *, get_display_manager, get_confinement):
+def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None):
     """Register screen management tools."""
 
     @mcp.tool(
@@ -26,6 +26,13 @@ def register(mcp, *, get_display_manager, get_confinement):
         display = dm.create_display(width, height)
         ce.set_agent_bounds(display)
 
+        # Transition to READY now that display + bounds are configured
+        if get_state_manager is not None:
+            sm = get_state_manager()
+            if sm is not None:
+                from windowsmcp_custom.server import ServerState
+                sm.transition(ServerState.READY)
+
         return (
             f"Agent screen created: {display.device_name} "
             f"at ({display.x}, {display.y}) {display.width}x{display.height}"
@@ -41,6 +48,19 @@ def register(mcp, *, get_display_manager, get_confinement):
 
         dm.destroy_display()
         ce.clear_bounds()
+
+        # Transition back from READY to DRIVER_AVAILABLE (represented as INIT after driver check)
+        # We use DEGRADED with reason to indicate "display destroyed but driver present"
+        if get_state_manager is not None:
+            sm = get_state_manager()
+            if sm is not None:
+                from windowsmcp_custom.server import ServerState
+                # Only transition away from READY — leave DEGRADED/DRIVER_MISSING alone
+                if sm.state == ServerState.READY:
+                    sm.transition(
+                        ServerState.DEGRADED,
+                        reason="agent screen destroyed — call CreateScreen to re-enable GUI tools",
+                    )
 
         return "Agent screen destroyed."
 
@@ -85,6 +105,12 @@ def register(mcp, *, get_display_manager, get_confinement):
         process_name: str = None,
         class_name: str = None,
     ) -> str:
+        guard = get_guard() if get_guard is not None else None
+        if guard:
+            err = guard.check("RecoverWindow")
+            if err:
+                return err
+
         from windowsmcp_custom.uia.controls import (
             enumerate_windows,
             get_window_rect,

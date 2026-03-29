@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 
-def register(mcp, *, get_display_manager, get_confinement):
+def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None):
     """Register the Process tool."""
 
     @mcp.tool(
@@ -21,6 +21,12 @@ def register(mcp, *, get_display_manager, get_confinement):
         name: Optional[str] = None,
         pid: Optional[int] = None,
     ) -> str:
+        guard = get_guard() if get_guard is not None else None
+        if guard:
+            err = guard.check("Process")
+            if err:
+                return err
+
         import psutil
 
         action = action.lower().strip()

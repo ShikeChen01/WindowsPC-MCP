@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -74,6 +75,7 @@ class ConfinementEngine:
     """Engine that validates and translates GUI actions to stay within agent screen bounds."""
 
     def __init__(self) -> None:
+        self._lock = threading.RLock()
         self._bounds: ScreenBounds | None = None
 
     @property
@@ -82,15 +84,17 @@ class ConfinementEngine:
 
     def set_agent_bounds(self, bounds: Any) -> None:
         """Accept any object with x, y, width, height attributes."""
-        self._bounds = ScreenBounds(
-            x=bounds.x,
-            y=bounds.y,
-            width=bounds.width,
-            height=bounds.height,
-        )
+        with self._lock:
+            self._bounds = ScreenBounds(
+                x=bounds.x,
+                y=bounds.y,
+                width=bounds.width,
+                height=bounds.height,
+            )
 
     def clear_bounds(self) -> None:
-        self._bounds = None
+        with self._lock:
+            self._bounds = None
 
     def classify_action(self, tool_name: str) -> ActionType:
         """Return the ActionType for the given tool name. Defaults to UNCONFINED."""
@@ -109,37 +113,40 @@ class ConfinementEngine:
         Raises:
             ConfinementError: If no agent display is set, or coordinates are out of bounds.
         """
-        if self._bounds is None:
-            raise ConfinementError(
-                "no agent display assigned — call set_agent_bounds() before translating coordinates"
-            )
+        with self._lock:
+            if self._bounds is None:
+                raise ConfinementError(
+                    "no agent display assigned — call set_agent_bounds() before translating coordinates"
+                )
 
-        bounds = self._bounds
-        if rel_x < 0 or rel_x >= bounds.width or rel_y < 0 or rel_y >= bounds.height:
-            raise ConfinementError(
-                f"coordinate ({rel_x}, {rel_y}) is out of bounds for agent display "
-                f"{bounds.width}x{bounds.height} — "
-                f"valid range is x=[0, {bounds.width - 1}], y=[0, {bounds.height - 1}]"
-            )
+            bounds = self._bounds
+            if rel_x < 0 or rel_x >= bounds.width or rel_y < 0 or rel_y >= bounds.height:
+                raise ConfinementError(
+                    f"coordinate ({rel_x}, {rel_y}) is out of bounds for agent display "
+                    f"{bounds.width}x{bounds.height} — "
+                    f"valid range is x=[0, {bounds.width - 1}], y=[0, {bounds.height - 1}]"
+                )
 
-        return (rel_x + bounds.x, rel_y + bounds.y)
+            return (rel_x + bounds.x, rel_y + bounds.y)
 
     def is_point_on_agent_screen(self, abs_x: int, abs_y: int) -> bool:
         """Return True if the absolute point lies within the agent's screen bounds."""
-        if self._bounds is None:
-            return False
-        b = self._bounds
-        return b.left <= abs_x < b.right and b.top <= abs_y < b.bottom
+        with self._lock:
+            if self._bounds is None:
+                return False
+            b = self._bounds
+            return b.left <= abs_x < b.right and b.top <= abs_y < b.bottom
 
     def validate_absolute_point(self, abs_x: int, abs_y: int) -> None:
         """Raise ConfinementError if the absolute point is not on the agent screen."""
-        if not self.is_point_on_agent_screen(abs_x, abs_y):
-            if self._bounds is None:
+        with self._lock:
+            if not self.is_point_on_agent_screen(abs_x, abs_y):
+                if self._bounds is None:
+                    raise ConfinementError(
+                        "no agent display assigned — cannot validate absolute point"
+                    )
+                b = self._bounds
                 raise ConfinementError(
-                    "no agent display assigned — cannot validate absolute point"
+                    f"absolute point ({abs_x}, {abs_y}) is not on the agent screen "
+                    f"[{b.left}, {b.top}) to ({b.right}, {b.bottom})"
                 )
-            b = self._bounds
-            raise ConfinementError(
-                f"absolute point ({abs_x}, {abs_y}) is not on the agent screen "
-                f"[{b.left}, {b.top}) to ({b.right}, {b.bottom})"
-            )

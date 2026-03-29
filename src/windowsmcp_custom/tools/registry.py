@@ -53,7 +53,7 @@ def _parse_key(key: str):
     return hive, subkey
 
 
-def register(mcp, *, get_display_manager, get_confinement):
+def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None):
     """Register the Registry tool."""
 
     @mcp.tool(
@@ -74,6 +74,12 @@ def register(mcp, *, get_display_manager, get_confinement):
         value: Optional[str] = None,
         value_type: str = "REG_SZ",
     ) -> str:
+        guard = get_guard() if get_guard is not None else None
+        if guard:
+            err = guard.check("Registry")
+            if err:
+                return err
+
         import winreg
 
         action = action.lower().strip()

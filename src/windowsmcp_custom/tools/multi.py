@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 
 
-def register(mcp, *, get_display_manager, get_confinement):
+def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None):
     """Register multi-action tools."""
 
     @mcp.tool(
@@ -18,6 +18,12 @@ def register(mcp, *, get_display_manager, get_confinement):
         ),
     )
     def multi_select(positions: list, button: str = "left") -> str:
+        guard = get_guard() if get_guard is not None else None
+        if guard:
+            err = guard.check("MultiSelect")
+            if err:
+                return err
+
         from windowsmcp_custom.uia.controls import click_at
         from windowsmcp_custom.confinement.engine import ConfinementError
 
@@ -47,6 +53,12 @@ def register(mcp, *, get_display_manager, get_confinement):
         ),
     )
     def multi_edit(fields: list) -> str:
+        guard = get_guard() if get_guard is not None else None
+        if guard:
+            err = guard.check("MultiEdit")
+            if err:
+                return err
+
         from windowsmcp_custom.uia.controls import click_at, type_text
         from windowsmcp_custom.confinement.engine import ConfinementError
 

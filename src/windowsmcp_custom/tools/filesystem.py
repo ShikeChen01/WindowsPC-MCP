@@ -7,7 +7,7 @@ import shutil
 from typing import Optional
 
 
-def register(mcp, *, get_display_manager, get_confinement):
+def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None):
     """Register the FileSystem tool."""
 
     @mcp.tool(
@@ -26,6 +26,12 @@ def register(mcp, *, get_display_manager, get_confinement):
         content: Optional[str] = None,
         destination: Optional[str] = None,
     ) -> str:
+        guard = get_guard() if get_guard is not None else None
+        if guard:
+            err = guard.check("FileSystem")
+            if err:
+                return err
+
         action = action.lower().strip()
 
         try:

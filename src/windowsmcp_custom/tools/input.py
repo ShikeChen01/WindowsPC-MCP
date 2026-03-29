@@ -49,7 +49,7 @@ def _parse_vk(key: str) -> int:
     raise ValueError(f"Unknown key: {key!r}")
 
 
-def register(mcp, *, get_display_manager, get_confinement):
+def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None):
     """Register input tools."""
 
     @mcp.tool(
@@ -61,6 +61,12 @@ def register(mcp, *, get_display_manager, get_confinement):
         ),
     )
     def click(x: int, y: int, button: str = "left", clicks: int = 1) -> str:
+        guard = get_guard() if get_guard is not None else None
+        if guard:
+            err = guard.check("Click")
+            if err:
+                return err
+
         from windowsmcp_custom.uia.controls import click_at
 
         ce = get_confinement()
@@ -81,6 +87,12 @@ def register(mcp, *, get_display_manager, get_confinement):
         y: int = None,
         clear: bool = False,
     ) -> str:
+        guard = get_guard() if get_guard is not None else None
+        if guard:
+            err = guard.check("Type")
+            if err:
+                return err
+
         from windowsmcp_custom.uia.controls import click_at, type_text
         from windowsmcp_custom.uia.core import (
             INPUT,
@@ -130,6 +142,12 @@ def register(mcp, *, get_display_manager, get_confinement):
         ),
     )
     def move(x: int, y: int, drag: bool = False) -> str:
+        guard = get_guard() if get_guard is not None else None
+        if guard:
+            err = guard.check("Move")
+            if err:
+                return err
+
         from windowsmcp_custom.uia.controls import move_cursor
         from windowsmcp_custom.uia.core import (
             INPUT,
@@ -175,6 +193,12 @@ def register(mcp, *, get_display_manager, get_confinement):
         ),
     )
     def scroll(x: int, y: int, amount: int = -3, horizontal: bool = False) -> str:
+        guard = get_guard() if get_guard is not None else None
+        if guard:
+            err = guard.check("Scroll")
+            if err:
+                return err
+
         from windowsmcp_custom.uia.controls import scroll_at
 
         ce = get_confinement()
@@ -192,6 +216,12 @@ def register(mcp, *, get_display_manager, get_confinement):
         ),
     )
     def shortcut(keys: str) -> str:
+        guard = get_guard() if get_guard is not None else None
+        if guard:
+            err = guard.check("Shortcut")
+            if err:
+                return err
+
         from windowsmcp_custom.confinement.shortcuts import is_shortcut_allowed, get_blocked_reason
         from windowsmcp_custom.uia.core import (
             INPUT,
@@ -237,6 +267,12 @@ def register(mcp, *, get_display_manager, get_confinement):
         description="Pause execution for the specified number of seconds (clamped to [0.1, 30]).",
     )
     def wait(seconds: float = 1.0) -> str:
+        guard = get_guard() if get_guard is not None else None
+        if guard:
+            err = guard.check("Wait")
+            if err:
+                return err
+
         seconds = max(0.1, min(30.0, float(seconds)))
         time.sleep(seconds)
         return f"Waited {seconds:.2f}s."

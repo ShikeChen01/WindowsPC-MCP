@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 
-def register(mcp, *, get_display_manager, get_confinement):
+def register(mcp, *, get_display_manager, get_confinement, get_state_manager=None, get_guard=None):
     """Register the Clipboard tool."""
 
     @mcp.tool(
@@ -17,6 +17,12 @@ def register(mcp, *, get_display_manager, get_confinement):
         ),
     )
     def clipboard(action: str = "get", content: Optional[str] = None) -> str:
+        guard = get_guard() if get_guard is not None else None
+        if guard:
+            err = guard.check("Clipboard")
+            if err:
+                return err
+
         action = action.lower().strip()
 
         try:
