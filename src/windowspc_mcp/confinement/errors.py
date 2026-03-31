@@ -29,3 +29,18 @@ class DisplayUnavailableError(WindowsMCPError):
 class TargetNotFoundError(WindowsMCPError):
     """UI element or window could not be found."""
     pass
+
+
+class AgentPreempted(WindowsMCPError):
+    """Human has taken control. Agent should wait for resume."""
+    pass
+
+
+class AgentPaused(WindowsMCPError):
+    """Agent is paused. User's desktop is active."""
+    pass
+
+
+class EmergencyStop(WindowsMCPError):
+    """Session terminated by user. No recovery."""
+    pass
