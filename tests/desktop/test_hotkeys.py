@@ -48,9 +48,12 @@ def _win32(monkeypatch):
     mock_kernel32 = MagicMock()
     mock_kernel32.GetCurrentThreadId.return_value = _FAKE_THREAD_ID
     mock_kernel32.GetModuleHandleW.return_value = _FAKE_HINSTANCE
-    mock_kernel32.GetLastError.return_value = 0
     monkeypatch.setattr(mod, "kernel32", mock_kernel32)
     mocks.kernel32 = mock_kernel32
+
+    # -- ctypes.get_last_error (used instead of kernel32.GetLastError) --
+    monkeypatch.setattr(ctypes, "get_last_error", lambda: mocks._last_error)
+    mocks._last_error = 0
 
     # -- user32 --
     mock_user32 = MagicMock()
@@ -139,6 +142,21 @@ class TestLifecycle:
         service.stop()
         assert not service.is_running
 
+    def test_start_timeout_raises_hotkey_error(self, win32, service, callbacks):
+        """If the listener thread doesn't signal ready within 5s, start() raises."""
+        from unittest.mock import patch
+        from windowspc_mcp.desktop.hotkeys import HotkeyError
+
+        # Make _listener_main never signal _ready (simulate a hung thread)
+        def fake_listener_main():
+            pass  # never calls self._ready.set()
+
+        service._listener_main = fake_listener_main
+
+        with patch.object(threading.Event, "wait", return_value=False):
+            with pytest.raises(HotkeyError, match="did not become ready"):
+                service.start(callbacks)
+
     def test_stop_is_idempotent(self, win32, service, callbacks):
         """Calling stop() when already stopped should not raise."""
         service.stop()  # never started
@@ -181,7 +199,7 @@ class TestHotkeyRegistration:
         from windowspc_mcp.desktop.hotkeys import HotkeyError
 
         win32.user32.RegisterHotKey.return_value = False
-        win32.kernel32.GetLastError.return_value = 1409  # ERROR_HOTKEY_ALREADY_REGISTERED
+        win32._last_error = 1409  # ERROR_HOTKEY_ALREADY_REGISTERED
 
         with pytest.raises(HotkeyError, match="RegisterHotKey failed"):
             service.start(callbacks)
@@ -394,16 +412,25 @@ class TestWindowCreationFailure:
         from windowspc_mcp.desktop.hotkeys import HotkeyError
 
         win32.user32.RegisterClassW.return_value = 0
-        win32.kernel32.GetLastError.return_value = 1410
+        win32._last_error = 87  # ERROR_INVALID_PARAMETER
 
         with pytest.raises(HotkeyError, match="RegisterClassW failed"):
             service.start(callbacks)
+
+    def test_register_class_already_exists_is_tolerated(self, win32, service, callbacks):
+        """ERROR_CLASS_ALREADY_EXISTS (1410) should be treated as success."""
+        win32.user32.RegisterClassW.return_value = 0
+        win32._last_error = 1410  # ERROR_CLASS_ALREADY_EXISTS
+
+        # Should NOT raise — class already existing is fine on restart
+        service.start(callbacks)
+        service.stop()
 
     def test_create_window_failure(self, win32, service, callbacks):
         from windowspc_mcp.desktop.hotkeys import HotkeyError
 
         win32.user32.CreateWindowExW.return_value = 0
-        win32.kernel32.GetLastError.return_value = 1400
+        win32._last_error = 1400
 
         with pytest.raises(HotkeyError, match="CreateWindowExW failed"):
             service.start(callbacks)

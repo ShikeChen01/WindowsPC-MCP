@@ -88,8 +88,8 @@ class MSG(ctypes.Structure):
 # Win32 API bindings — user32
 # ---------------------------------------------------------------------------
 
-user32 = ctypes.windll.user32
-kernel32 = ctypes.windll.kernel32
+user32 = ctypes.WinDLL("user32", use_last_error=True)
+kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 
 # RegisterHotKey(HWND, int, UINT, UINT) -> BOOL
 user32.RegisterHotKey.restype = ctypes.wintypes.BOOL
@@ -182,9 +182,6 @@ kernel32.GetModuleHandleW.argtypes = [ctypes.wintypes.LPCWSTR]
 kernel32.GetCurrentThreadId.restype = ctypes.wintypes.DWORD
 kernel32.GetCurrentThreadId.argtypes = []
 
-# GetLastError() -> DWORD
-kernel32.GetLastError.restype = ctypes.wintypes.DWORD
-kernel32.GetLastError.argtypes = []
 
 # ---------------------------------------------------------------------------
 # Hotkey definitions
@@ -270,7 +267,8 @@ class HotkeyService:
         self._thread.start()
 
         # Wait for the listener thread to finish registration.
-        self._ready.wait(timeout=5.0)
+        if not self._ready.wait(timeout=5.0):
+            raise HotkeyError("Hotkey listener thread did not become ready within 5 seconds")
         if self._error is not None:
             raise self._error
 
@@ -364,10 +362,11 @@ class HotkeyService:
 
         atom = user32.RegisterClassW(ctypes.byref(wc))
         if not atom:
-            err = kernel32.GetLastError()
-            raise HotkeyError(
-                f"RegisterClassW failed for '{_WINDOW_CLASS_NAME}', error {err}"
-            )
+            err = ctypes.get_last_error()
+            if err != 1410:  # ERROR_CLASS_ALREADY_EXISTS
+                raise HotkeyError(
+                    f"RegisterClassW failed for '{_WINDOW_CLASS_NAME}', error {err}"
+                )
         self._class_atom = atom
 
         hwnd = user32.CreateWindowExW(
@@ -382,7 +381,7 @@ class HotkeyService:
             None,                 # lpParam
         )
         if not hwnd:
-            err = kernel32.GetLastError()
+            err = ctypes.get_last_error()
             raise HotkeyError(
                 f"CreateWindowExW failed, error {err}"
             )
@@ -391,11 +390,12 @@ class HotkeyService:
 
     def _register_hotkeys(self) -> None:
         """Register all configured hotkeys on the hidden window."""
-        assert self._hwnd is not None
+        if self._hwnd is None:
+            raise HotkeyError("Cannot register hotkeys: no message window")
         for hk_id, (modifiers, vk) in _HOTKEY_BINDINGS.items():
             ok = user32.RegisterHotKey(self._hwnd, int(hk_id), modifiers, vk)
             if not ok:
-                err = kernel32.GetLastError()
+                err = ctypes.get_last_error()
                 raise HotkeyError(
                     f"RegisterHotKey failed for {hk_id.name} "
                     f"(id={hk_id}, mod=0x{modifiers:04X}, vk=0x{vk:02X}), "
