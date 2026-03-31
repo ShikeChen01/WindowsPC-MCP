@@ -12,6 +12,7 @@ import logging
 import subprocess
 import threading
 from ctypes import POINTER, c_void_p
+from types import TracebackType
 
 from windowspc_mcp.confinement.errors import InvalidStateError, WindowsMCPError
 
@@ -44,8 +45,8 @@ DF_ALLOWOTHERACCOUNTHOOK = 0x0001
 # Win32 API bindings — user32
 # ---------------------------------------------------------------------------
 
-user32 = ctypes.windll.user32
-kernel32 = ctypes.windll.kernel32
+user32 = ctypes.WinDLL("user32", use_last_error=True)
+kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 
 # HDESK CreateDesktopW(LPCWSTR, LPCWSTR, DEVMODE*, DWORD, DWORD, SECURITY_ATTRIBUTES*)
 user32.CreateDesktopW.restype = HDESK
@@ -90,10 +91,6 @@ user32.SetThreadDesktop.argtypes = [HDESK]
 kernel32.GetCurrentThreadId.restype = ctypes.wintypes.DWORD
 kernel32.GetCurrentThreadId.argtypes = []
 
-# DWORD GetLastError(void)  — already declared by ctypes, but be explicit
-kernel32.GetLastError.restype = ctypes.wintypes.DWORD
-kernel32.GetLastError.argtypes = []
-
 # ---------------------------------------------------------------------------
 # DesktopManager
 # ---------------------------------------------------------------------------
@@ -114,6 +111,7 @@ class DesktopManager:
         self._user_desktop: HDESK | None = None
         self._agent_desktop: HDESK | None = None
         self._agent_is_active: bool = False
+        self._processes: list[subprocess.Popen] = []
 
         # Capture the current thread's desktop as the "user" desktop.
         tid = kernel32.GetCurrentThreadId()
@@ -121,7 +119,7 @@ class DesktopManager:
         if not hdesk:
             raise DesktopError(
                 f"GetThreadDesktop failed (thread {tid}), "
-                f"error {kernel32.GetLastError()}"
+                f"error {ctypes.get_last_error()}"
             )
         self._user_desktop = hdesk
         log.debug("Captured user desktop handle: %s (thread %d)", hdesk, tid)
@@ -141,11 +139,11 @@ class DesktopManager:
                 None,   # lpszDevice
                 None,   # pDevmode
                 0,      # dwFlags
-                GENERIC_ALL,
+                DESKTOP_ALL_ACCESS,
                 None,   # lpsa
             )
             if not hdesk:
-                err = kernel32.GetLastError()
+                err = ctypes.get_last_error()
                 raise DesktopError(
                     f"CreateDesktopW failed for '{_AGENT_DESKTOP_NAME}', "
                     f"error {err}"
@@ -164,7 +162,7 @@ class DesktopManager:
                 return
             if not user32.SwitchDesktop(self._agent_desktop):
                 raise DesktopError(
-                    f"SwitchDesktop(agent) failed, error {kernel32.GetLastError()}"
+                    f"SwitchDesktop(agent) failed, error {ctypes.get_last_error()}"
                 )
             self._agent_is_active = True
             log.info("Switched input to agent desktop")
@@ -200,6 +198,7 @@ class DesktopManager:
                 cwd=cwd,
                 startupinfo=si,
             )
+            self._processes.append(proc)
             log.info(
                 "Launched %s on agent desktop (PID %d)", executable, proc.pid
             )
@@ -208,13 +207,28 @@ class DesktopManager:
     def destroy(self) -> None:
         """Close the agent desktop handle.
 
-        If the agent desktop is currently the input desktop, switch back to
-        the user's desktop first.
+        Terminates any still-running processes launched on the agent desktop,
+        switches back to the user's desktop if needed, and closes the handle.
         """
         with self._lock:
             if self._agent_desktop is None:
                 log.debug("destroy() called but no agent desktop exists — no-op")
                 return
+
+            # Terminate any still-running processes.
+            for proc in self._processes:
+                if proc.poll() is None:
+                    log.info("Terminating agent process PID %d", proc.pid)
+                    try:
+                        proc.terminate()
+                        proc.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        log.warning("Killing agent process PID %d", proc.pid)
+                        proc.kill()
+                        proc.wait(timeout=3)
+                    except OSError:
+                        pass
+            self._processes.clear()
 
             # Switch back to user desktop first if agent is active.
             if self._agent_is_active:
@@ -222,7 +236,7 @@ class DesktopManager:
 
             if not user32.CloseDesktop(self._agent_desktop):
                 log.warning(
-                    "CloseDesktop failed, error %d", kernel32.GetLastError()
+                    "CloseDesktop failed, error %d", ctypes.get_last_error()
                 )
             else:
                 log.info("Closed agent desktop handle")
@@ -244,6 +258,21 @@ class DesktopManager:
         return _AGENT_DESKTOP_NAME
 
     # ------------------------------------------------------------------
+    # Context manager
+    # ------------------------------------------------------------------
+
+    def __enter__(self) -> DesktopManager:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        self.destroy()
+
+    # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
@@ -256,7 +285,7 @@ class DesktopManager:
             raise DesktopError("User desktop handle is not available")
         if not user32.SwitchDesktop(self._user_desktop):
             raise DesktopError(
-                f"SwitchDesktop(user) failed, error {kernel32.GetLastError()}"
+                f"SwitchDesktop(user) failed, error {ctypes.get_last_error()}"
             )
         self._agent_is_active = False
         log.info("Switched input back to user desktop")
