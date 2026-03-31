@@ -7,11 +7,13 @@ from .manager import DesktopError, DesktopManager
 from .monitor import InputDecayMonitor
 from .profiler import ActionProfiler, ActionTiming, ActionType
 from .responses import format_gate_error
+from .scheduler import CursorScheduler, Instruction
 
 __all__ = [
     "ActionProfiler",
     "ActionTiming",
     "ActionType",
+    "CursorScheduler",
     "DesktopController",
     "DesktopError",
     "DesktopManager",
@@ -21,5 +23,6 @@ __all__ = [
     "InputDecayMonitor",
     "InputGate",
     "InputMode",
+    "Instruction",
     "format_gate_error",
 ]
