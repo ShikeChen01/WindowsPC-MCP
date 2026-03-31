@@ -27,3 +27,4 @@ uv.lock
 .idea/
 *.swp
 .superpowers/
+.worktrees/
