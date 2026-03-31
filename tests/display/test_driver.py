@@ -253,9 +253,19 @@ class TestVddAddDisplay:
 
         mock_ioctl.side_effect = side_effect
         index = vdd_add_display(42)
-        # buf[0] is b'\x03'
-        assert index == b'\x03'
+        # buf[0] is b'\x03' -> converted to int 3
+        assert index == 3
         mock_update.assert_called_once_with(42)
+
+    @patch("windowspc_mcp.display.driver.vdd_update")
+    @patch("windowspc_mcp.display.driver._vdd_ioctl")
+    def test_uses_correct_buffer_size(self, mock_ioctl, mock_update):
+        from windowspc_mcp.display.driver import vdd_add_display, VDD_IOCTL_ADD, VDD_IOCTL_BUFFER_SIZE
+
+        vdd_add_display(42)
+        args = mock_ioctl.call_args[0]
+        assert args[1] == VDD_IOCTL_ADD
+        assert args[3] == VDD_IOCTL_BUFFER_SIZE
 
 
 class TestVddRemoveDisplay:
@@ -263,14 +273,35 @@ class TestVddRemoveDisplay:
 
     @patch("windowspc_mcp.display.driver._vdd_ioctl")
     def test_sends_correct_ioctl(self, mock_ioctl):
-        from windowspc_mcp.display.driver import vdd_remove_display, VDD_IOCTL_REMOVE
+        from windowspc_mcp.display.driver import vdd_remove_display, VDD_IOCTL_REMOVE, VDD_IOCTL_BUFFER_SIZE
 
         vdd_remove_display(42, 5)
         mock_ioctl.assert_called_once()
-        args = mock_ioctl.call_args
-        assert args[0][0] == 42
-        assert args[0][1] == VDD_IOCTL_REMOVE
-        assert args[0][3] == 2
+        args = mock_ioctl.call_args[0]
+        assert args[0] == 42
+        assert args[1] == VDD_IOCTL_REMOVE
+        assert args[3] == VDD_IOCTL_BUFFER_SIZE
+
+    @patch("windowspc_mcp.display.driver._vdd_ioctl")
+    def test_encodes_index_big_endian(self, mock_ioctl):
+        """Parsec VDD expects the display index as big-endian u16."""
+        from windowspc_mcp.display.driver import vdd_remove_display
+
+        vdd_remove_display(42, 5)
+        buf = mock_ioctl.call_args[0][2]
+        assert bytes(buf[:2]) == b'\x00\x05'
+
+    def test_rejects_negative_index(self):
+        from windowspc_mcp.display.driver import vdd_remove_display
+
+        with pytest.raises(ValueError, match="display index must be"):
+            vdd_remove_display(42, -1)
+
+    def test_rejects_index_over_65535(self):
+        from windowspc_mcp.display.driver import vdd_remove_display
+
+        with pytest.raises(ValueError, match="display index must be"):
+            vdd_remove_display(42, 0x10000)
 
 
 class TestVddUpdate:
@@ -283,6 +314,13 @@ class TestVddUpdate:
         vdd_update(42)
         mock_ioctl.assert_called_once()
         assert mock_ioctl.call_args[0][1] == VDD_IOCTL_UPDATE
+
+    @patch("windowspc_mcp.display.driver._vdd_ioctl")
+    def test_update_buffer_size(self, mock_ioctl):
+        from windowspc_mcp.display.driver import vdd_update
+
+        vdd_update(42)
+        assert mock_ioctl.call_args[0][3] == 4
 
 
 class TestVddVersion:
@@ -303,6 +341,19 @@ class TestVddVersion:
         mock_ioctl.side_effect = side_effect
         version = vdd_version(42)
         assert version == 0x00010002
+
+    @patch("windowspc_mcp.display.driver._vdd_ioctl")
+    def test_uses_correct_buffer_size(self, mock_ioctl):
+        from windowspc_mcp.display.driver import vdd_version, VDD_IOCTL_VERSION, VDD_IOCTL_BUFFER_SIZE
+
+        def side_effect(handle, code, data, size):
+            return 4
+
+        mock_ioctl.side_effect = side_effect
+        vdd_version(42)
+        args = mock_ioctl.call_args[0]
+        assert args[1] == VDD_IOCTL_VERSION
+        assert args[3] == VDD_IOCTL_BUFFER_SIZE
 
 
 # =========================================================================

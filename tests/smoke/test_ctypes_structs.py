@@ -69,7 +69,7 @@ class TestINPUTStructs:
 
 
 class TestDriverStructs:
-    """Verify Parsec VDD driver ctypes structures."""
+    """Verify Parsec VDD driver ctypes structures match Win32 ABI."""
 
     def test_guid(self):
         from windowspc_mcp.display.driver import GUID, VDD_ADAPTER_GUID
@@ -82,7 +82,40 @@ class TestDriverStructs:
         d.cbSize = ctypes.sizeof(SP_DEVICE_INTERFACE_DATA)
         assert d.cbSize > 0
 
+    def test_sp_device_interface_data_reserved_is_pointer_sized(self):
+        """Reserved field is ULONG_PTR — must be pointer-sized, not DWORD."""
+        from windowspc_mcp.display.driver import SP_DEVICE_INTERFACE_DATA
+        ptr_size = ctypes.sizeof(ctypes.c_void_p)
+        reserved_offset = SP_DEVICE_INTERFACE_DATA.Reserved.offset
+        total_size = ctypes.sizeof(SP_DEVICE_INTERFACE_DATA)
+        # Reserved is the last field; its size = total - offset
+        reserved_size = total_size - reserved_offset
+        assert reserved_size == ptr_size
+
     def test_overlapped(self):
         from windowspc_mcp.display.driver import OVERLAPPED
         o = OVERLAPPED()
         assert o.hEvent is None or o.hEvent == 0  # c_void_p defaults to None
+
+    def test_overlapped_sizeof(self):
+        """OVERLAPPED must be 32 bytes on 64-bit, 20 bytes on 32-bit."""
+        from windowspc_mcp.display.driver import OVERLAPPED
+        ptr_size = ctypes.sizeof(ctypes.c_void_p)
+        expected = 32 if ptr_size == 8 else 20
+        assert ctypes.sizeof(OVERLAPPED) == expected
+
+    def test_overlapped_field_offsets(self):
+        """Validate OVERLAPPED field offsets match Win32 ABI.
+
+        On 64-bit: Internal(0,8) InternalHigh(8,8) Offset(16,4) OffsetHigh(20,4) hEvent(24,8)
+        On 32-bit: Internal(0,4) InternalHigh(4,4) Offset(8,4)  OffsetHigh(12,4) hEvent(16,4)
+        """
+        from windowspc_mcp.display.driver import OVERLAPPED
+        ptr_size = ctypes.sizeof(ctypes.c_void_p)
+
+        assert OVERLAPPED.Internal.offset == 0
+        assert OVERLAPPED.InternalHigh.offset == ptr_size
+        assert OVERLAPPED.Offset.offset == ptr_size * 2
+        assert OVERLAPPED.OffsetHigh.offset == ptr_size * 2 + 4
+        expected_hevent = 24 if ptr_size == 8 else 16
+        assert OVERLAPPED.hEvent.offset == expected_hevent

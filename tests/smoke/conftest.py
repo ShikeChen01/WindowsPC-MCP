@@ -9,11 +9,15 @@ def pytest_configure(config):
 
 
 def _vdd_available() -> bool:
+    """Check driver is installed AND IOCTLs work (not just handle opens)."""
     try:
-        from windowspc_mcp.display.driver import open_device_handle, CloseHandle
+        from windowspc_mcp.display.driver import open_device_handle, vdd_version, CloseHandle
         h = open_device_handle()
-        CloseHandle(h)
-        return True
+        try:
+            ver = vdd_version(h)
+            return isinstance(ver, int) and ver > 0
+        finally:
+            CloseHandle(h)
     except Exception:
         return False
 

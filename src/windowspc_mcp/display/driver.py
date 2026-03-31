@@ -16,6 +16,9 @@ VDD_IOCTL_REMOVE = 0x0022A008
 VDD_IOCTL_UPDATE = 0x0022A00C
 VDD_IOCTL_VERSION = 0x0022E010
 
+# Minimum buffer size required by the Parsec VDD driver for all IOCTLs.
+VDD_IOCTL_BUFFER_SIZE = 32
+
 # ---------------------------------------------------------------------------
 # Win32 constants
 # ---------------------------------------------------------------------------
@@ -63,7 +66,7 @@ class SP_DEVICE_INTERFACE_DATA(ctypes.Structure):
         ("cbSize", ctypes.c_ulong),
         ("InterfaceClassGuid", GUID),
         ("Flags", ctypes.c_ulong),
-        ("Reserved", ctypes.POINTER(ctypes.c_ulong)),
+        ("Reserved", ctypes.c_void_p),  # ULONG_PTR, not a pointer-to-ULONG
     ]
 
 
@@ -76,8 +79,8 @@ class SP_DEVICE_INTERFACE_DETAIL_DATA_A(ctypes.Structure):
 
 class OVERLAPPED(ctypes.Structure):
     _fields_ = [
-        ("Internal", ctypes.c_ulong),
-        ("InternalHigh", ctypes.c_ulong),
+        ("Internal", ctypes.c_size_t),      # ULONG_PTR (8 bytes on 64-bit)
+        ("InternalHigh", ctypes.c_size_t),   # ULONG_PTR (8 bytes on 64-bit)
         ("Offset", ctypes.c_ulong),
         ("OffsetHigh", ctypes.c_ulong),
         ("hEvent", ctypes.c_void_p),
@@ -320,9 +323,9 @@ def vdd_add_display(handle) -> int:
     Returns:
         int: Index of the newly added display.
     """
-    buf = (ctypes.c_char * 4)(b'\x00', b'\x00', b'\x00', b'\x00')
-    _vdd_ioctl(handle, VDD_IOCTL_ADD, buf, 4)
-    index = buf[0]
+    buf = (ctypes.c_char * VDD_IOCTL_BUFFER_SIZE)()
+    _vdd_ioctl(handle, VDD_IOCTL_ADD, buf, VDD_IOCTL_BUFFER_SIZE)
+    index = bytes(buf)[0]
     vdd_update(handle)
     return index
 
@@ -336,9 +339,11 @@ def vdd_remove_display(handle, index: int) -> None:
         handle: Open device handle.
         index:  Display index to remove.
     """
-    data = struct.pack(">H", index & 0xFFFF)
-    buf = (ctypes.c_char * 2)(*data)
-    _vdd_ioctl(handle, VDD_IOCTL_REMOVE, buf, 2)
+    if not (0 <= index <= 0xFFFF):
+        raise ValueError(f"display index must be 0..65535, got {index}")
+    buf = (ctypes.c_char * VDD_IOCTL_BUFFER_SIZE)()
+    struct.pack_into(">H", buf, 0, index)
+    _vdd_ioctl(handle, VDD_IOCTL_REMOVE, buf, VDD_IOCTL_BUFFER_SIZE)
 
 
 def vdd_update(handle) -> None:
@@ -353,9 +358,9 @@ def vdd_version(handle) -> int:
     Returns:
         int: Driver version as a 32-bit integer.
     """
-    buf = (ctypes.c_char * 4)(b'\x00', b'\x00', b'\x00', b'\x00')
-    _vdd_ioctl(handle, VDD_IOCTL_VERSION, buf, 4)
-    return struct.unpack("<I", bytes(buf))[0]
+    buf = (ctypes.c_char * VDD_IOCTL_BUFFER_SIZE)()
+    _vdd_ioctl(handle, VDD_IOCTL_VERSION, buf, VDD_IOCTL_BUFFER_SIZE)
+    return int.from_bytes(bytes(buf[:4]), "little")
 
 
 # ---------------------------------------------------------------------------
