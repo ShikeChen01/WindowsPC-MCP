@@ -2,7 +2,7 @@
 name = "windowspc-mcp"
 version = "0.1.0"
 description = "Confined Windows MCP server with virtual display isolation for AI agents."
-requires-python = ">=3.12,<3.14"
+requires-python = ">=3.12"
 dependencies = [
     "click>=8.2.0",
     "comtypes>=1.4.15",
