@@ -5,6 +5,7 @@ from .gate import InputGate, InputMode
 from .hotkeys import HotkeyError, HotkeyId, HotkeyService
 from .manager import DesktopError, DesktopManager
 from .monitor import InputDecayMonitor
+from .overlay import ConflictDetector, CursorState, GhostCursorOverlay
 from .profiler import ActionProfiler, ActionTiming, ActionType
 from .responses import format_gate_error
 from .scheduler import CursorScheduler, Instruction
@@ -13,10 +14,13 @@ __all__ = [
     "ActionProfiler",
     "ActionTiming",
     "ActionType",
+    "ConflictDetector",
     "CursorScheduler",
+    "CursorState",
     "DesktopController",
     "DesktopError",
     "DesktopManager",
+    "GhostCursorOverlay",
     "HotkeyError",
     "HotkeyId",
     "HotkeyService",
