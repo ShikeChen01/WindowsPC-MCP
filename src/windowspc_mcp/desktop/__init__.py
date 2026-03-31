@@ -4,6 +4,7 @@ from .controller import DesktopController
 from .gate import InputGate, InputMode
 from .hotkeys import HotkeyError, HotkeyId, HotkeyService
 from .manager import DesktopError, DesktopManager
+from .monitor import InputDecayMonitor
 from .responses import format_gate_error
 
 __all__ = [
@@ -13,6 +14,7 @@ __all__ = [
     "HotkeyError",
     "HotkeyId",
     "HotkeyService",
+    "InputDecayMonitor",
     "InputGate",
     "InputMode",
     "format_gate_error",
