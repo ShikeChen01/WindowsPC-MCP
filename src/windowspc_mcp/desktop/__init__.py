@@ -1,5 +1,6 @@
 """Desktop isolation for the agent — create, switch, and destroy Win32 desktops."""
 
+from .capture import DesktopCapture, FrameBuffer
 from .controller import DesktopController
 from .gate import InputGate, InputMode
 from .hotkeys import HotkeyError, HotkeyId, HotkeyService
@@ -17,9 +18,11 @@ __all__ = [
     "ConflictDetector",
     "CursorScheduler",
     "CursorState",
+    "DesktopCapture",
     "DesktopController",
     "DesktopError",
     "DesktopManager",
+    "FrameBuffer",
     "GhostCursorOverlay",
     "HotkeyError",
     "HotkeyId",
