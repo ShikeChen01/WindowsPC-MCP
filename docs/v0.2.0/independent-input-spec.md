@@ -439,7 +439,7 @@ CreateDesktop shares all system resources (CPU, RAM, disk, network). There is no
 1. DesktopManager — create/destroy/switch agent desktop
 2. Process launcher — STARTUPINFO.lpDesktop integration
 3. HotkeyService — basic mode toggle (AGENT_SOLO ↔ HUMAN_HOME)
-4. Desktop streaming — capture agent desktop, render in viewer
+4. Desktop streaming — capture agent desktop (DXGI/BitBlt), render in read-only viewer window on user's desktop
 5. InputGate — route based on mode, pass-through for AGENT_SOLO
 
 Delivers: agent and user fully isolated. Agent works on own desktop. User watches via stream. No cursor conflict possible.
