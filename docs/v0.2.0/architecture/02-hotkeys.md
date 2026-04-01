@@ -8,7 +8,7 @@ System-wide hotkey registration and dispatch. Runs a Win32 message pump in a dae
 |--------|----------|--------|
 | Ctrl+Alt+Space | TOGGLE (1) | Cycle modes |
 | Ctrl+Alt+Enter | OVERRIDE (2) | Instant HUMAN_OVERRIDE |
-| Ctrl+Alt+Break | EMERGENCY (3) | Emergency stop |
+| Ctrl+Alt+S | EMERGENCY (3) | Emergency stop |
 
 ## Public API
 

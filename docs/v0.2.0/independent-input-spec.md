@@ -326,7 +326,7 @@ Hotkeys are registered via `RegisterHotKey` on a hidden message window on each d
 |--------|--------------|--------|
 | Ctrl+Alt+Space | All desktops | Toggle: cycle AGENT_SOLO → COWORK → HUMAN_HOME |
 | Ctrl+Alt+Enter | All desktops | HUMAN_OVERRIDE (instant, from any mode) |
-| Ctrl+Alt+Break | All desktops | EMERGENCY_STOP |
+| Ctrl+Alt+S | All desktops | EMERGENCY_STOP |
 | Ctrl+Alt+Home | Agent desktop | Switch to HUMAN_HOME |
 
 ### Mode transition behavior

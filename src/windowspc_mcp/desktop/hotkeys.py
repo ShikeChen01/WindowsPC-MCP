@@ -40,7 +40,7 @@ MOD_CONTROL = 0x0002
 
 VK_SPACE = 0x20
 VK_RETURN = 0x0D
-VK_CANCEL = 0x03  # Break key
+VK_S = 0x53
 
 # HWND_MESSAGE — parent for message-only windows
 HWND_MESSAGE = ctypes.wintypes.HWND(-3)
@@ -201,7 +201,7 @@ class HotkeyId(IntEnum):
 _HOTKEY_BINDINGS: dict[HotkeyId, tuple[int, int]] = {
     HotkeyId.TOGGLE:    (MOD_CONTROL | MOD_ALT, VK_SPACE),
     HotkeyId.OVERRIDE:  (MOD_CONTROL | MOD_ALT, VK_RETURN),
-    HotkeyId.EMERGENCY: (MOD_CONTROL | MOD_ALT, VK_CANCEL),
+    HotkeyId.EMERGENCY: (MOD_CONTROL | MOD_ALT, VK_S),
 }
 
 
