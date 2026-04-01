@@ -7,7 +7,7 @@ from .hotkeys import HotkeyError, HotkeyId, HotkeyService
 from .manager import DesktopError, DesktopManager
 from .monitor import InputDecayMonitor
 from .overlay import ConflictDetector, CursorState, GhostCursorOverlay
-from .profiler import ActionProfiler, ActionTiming, ActionType
+from .profiler import ActionProfiler, ActionTiming, InputActionType
 from .responses import format_gate_error
 from .scheduler import CursorScheduler, Instruction
 from .viewer import ViewerWindow
@@ -15,7 +15,7 @@ from .viewer import ViewerWindow
 __all__ = [
     "ActionProfiler",
     "ActionTiming",
-    "ActionType",
+    "InputActionType",
     "ConflictDetector",
     "CursorScheduler",
     "CursorState",

@@ -180,6 +180,11 @@ class DesktopCapture:
             height: Capture height in pixels (should match VDD resolution)
             fps: Target capture framerate
         """
+        if width <= 0 or height <= 0:
+            raise ValueError("width and height must be positive")
+        if fps <= 0:
+            raise ValueError("fps must be positive")
+
         self._desktop_handle = desktop_handle
         self._width = width
         self._height = height
@@ -315,7 +320,7 @@ class DesktopCapture:
             user32.ReleaseDC(None, hdc_desktop)
             return
 
-        gdi32.SelectObject(hdc_mem, hbm)
+        old_bm = gdi32.SelectObject(hdc_mem, hbm)
 
         # 4. Prepare BITMAPINFO for GetDIBits
         bmi = BITMAPINFO()
@@ -334,7 +339,7 @@ class DesktopCapture:
                 frame_start = time.perf_counter_ns()
 
                 # BitBlt from desktop to memory DC
-                gdi32.BitBlt(
+                if not gdi32.BitBlt(
                     hdc_mem,
                     0,
                     0,
@@ -344,10 +349,13 @@ class DesktopCapture:
                     0,
                     0,
                     SRCCOPY,
-                )
+                ):
+                    log.warning("BitBlt failed, error %d", ctypes.get_last_error())
+                    self._stop_event.wait(0.1)
+                    continue
 
                 # Extract pixels
-                gdi32.GetDIBits(
+                scanlines = gdi32.GetDIBits(
                     hdc_mem,
                     hbm,
                     0,
@@ -356,6 +364,10 @@ class DesktopCapture:
                     ctypes.byref(bmi),
                     DIB_RGB_COLORS,
                 )
+                if scanlines == 0:
+                    log.warning("GetDIBits failed, error %d", ctypes.get_last_error())
+                    self._stop_event.wait(0.1)
+                    continue
 
                 # Write to shared buffer under lock
                 with self._frame_buffer.lock:
@@ -380,6 +392,8 @@ class DesktopCapture:
             log.exception("Capture loop crashed")
         finally:
             # 6. Cleanup GDI objects
+            if old_bm:
+                gdi32.SelectObject(hdc_mem, old_bm)
             gdi32.DeleteObject(hbm)
             gdi32.DeleteDC(hdc_mem)
             user32.ReleaseDC(None, hdc_desktop)

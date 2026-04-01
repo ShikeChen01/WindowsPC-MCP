@@ -125,13 +125,15 @@ class TestClassifyActionUnconfinedTools:
 
 
 class TestClassifyActionUnknown:
-    def test_unknown_tool_defaults_to_unconfined(self):
+    def test_unknown_tool_raises_confinement_error(self):
         engine = ConfinementEngine()
-        assert engine.classify_action("FooBar") == ActionType.UNCONFINED
+        with pytest.raises(ConfinementError, match="Unknown tool: 'FooBar'"):
+            engine.classify_action("FooBar")
 
-    def test_empty_string_defaults_to_unconfined(self):
+    def test_empty_string_raises_confinement_error(self):
         engine = ConfinementEngine()
-        assert engine.classify_action("") == ActionType.UNCONFINED
+        with pytest.raises(ConfinementError, match="Unknown tool"):
+            engine.classify_action("")
 
 
 class TestClassifyActionExhaustive:

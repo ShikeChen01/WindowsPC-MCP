@@ -253,6 +253,12 @@ class DesktopManager:
             return self._agent_is_active
 
     @property
+    def agent_desktop_handle(self):
+        """The HDESK handle for the agent desktop, or None if not created."""
+        with self._lock:
+            return self._agent_desktop
+
+    @property
     def agent_desktop_name(self) -> str:
         """The fixed name of the agent desktop."""
         return _AGENT_DESKTOP_NAME

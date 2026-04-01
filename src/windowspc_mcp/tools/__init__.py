@@ -13,6 +13,7 @@ from windowspc_mcp.tools import (
     registry,
     notification,
     scrape,
+    input_status,
 )
 
 _MODULES = [
@@ -28,6 +29,7 @@ _MODULES = [
     registry,
     notification,
     scrape,
+    input_status,
 ]
 
 

@@ -203,7 +203,9 @@ class TestClickE2E:
         assert "Error" in result
 
     def test_click_not_ready_returns_guard_error(self, ready_stack):
-        ready_stack["state_manager"].transition(ServerState.INIT)
+        ready_stack["state_manager"].transition(
+            ServerState.DEGRADED, reason="display lost"
+        )
         click = ready_stack["tool"]("Click")
         result = click(x=100, y=200)
         assert "Cannot use Click" in result
@@ -548,7 +550,9 @@ class TestShortcutE2E:
         svc.send_shortcut.assert_called_once_with("ctrl+a")
 
     def test_shortcut_not_ready_returns_guard_error(self, ready_stack):
-        ready_stack["state_manager"].transition(ServerState.INIT)
+        ready_stack["state_manager"].transition(
+            ServerState.DEGRADED, reason="display lost"
+        )
         shortcut = ready_stack["tool"]("Shortcut")
         result = shortcut(keys="ctrl+c")
         assert "Cannot use Shortcut" in result
@@ -633,8 +637,8 @@ class TestGuardIntegration:
         "Wait": {"seconds": 0.5},
     }
 
-    def test_all_input_tools_blocked_in_init(self, ready_stack):
-        ready_stack["state_manager"].transition(ServerState.INIT)
+    def test_all_input_tools_blocked_in_recovering(self, ready_stack):
+        ready_stack["state_manager"].transition(ServerState.RECOVERING)
 
         for name, kwargs in self.INPUT_TOOLS_WITH_ARGS.items():
             tool_fn = ready_stack["tool"](name)
@@ -643,12 +647,12 @@ class TestGuardIntegration:
                     result = tool_fn(**kwargs)
             else:
                 result = tool_fn(**kwargs)
-            # Wait is UNCONFINED so it should pass even in INIT.
+            # Wait is UNCONFINED so it should pass even in RECOVERING.
             # All WRITE tools should be blocked.
             if name == "Wait":
-                assert "Cannot" not in result, f"Wait should not be blocked in INIT, got: {result}"
+                assert "Cannot" not in result, f"Wait should not be blocked in RECOVERING, got: {result}"
             else:
-                assert "Cannot" in result, f"{name} should be blocked in INIT, got: {result}"
+                assert "Cannot" in result, f"{name} should be blocked in RECOVERING, got: {result}"
 
     def test_all_input_tools_blocked_in_shutting_down(self, ready_stack):
         ready_stack["state_manager"].transition(ServerState.SHUTTING_DOWN)
@@ -665,8 +669,10 @@ class TestGuardIntegration:
                 f"{name} should be blocked in SHUTTING_DOWN, got: {result}"
             )
 
-    def test_all_input_tools_blocked_in_driver_missing(self, ready_stack):
-        ready_stack["state_manager"].transition(ServerState.DRIVER_MISSING)
+    def test_all_input_tools_blocked_in_degraded(self, ready_stack):
+        ready_stack["state_manager"].transition(
+            ServerState.DEGRADED, reason="display lost"
+        )
 
         for name, kwargs in self.INPUT_TOOLS_WITH_ARGS.items():
             tool_fn = ready_stack["tool"](name)
@@ -677,9 +683,9 @@ class TestGuardIntegration:
                 result = tool_fn(**kwargs)
             # WRITE tools blocked, Wait (UNCONFINED) should pass
             if name == "Wait":
-                assert "Cannot" not in result, f"Wait should not be blocked in DRIVER_MISSING, got: {result}"
+                assert "Cannot" not in result, f"Wait should not be blocked in DEGRADED, got: {result}"
             else:
-                assert "Cannot" in result, f"{name} should be blocked in DRIVER_MISSING, got: {result}"
+                assert "Cannot" in result, f"{name} should be blocked in DEGRADED, got: {result}"
 
     def test_all_input_tools_work_in_ready(self, ready_stack):
         # State is already READY from fixture

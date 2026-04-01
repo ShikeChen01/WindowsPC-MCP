@@ -37,6 +37,7 @@ WM_QUIT = 0x0012
 
 MOD_ALT = 0x0001
 MOD_CONTROL = 0x0002
+MOD_NOREPEAT = 0x4000
 
 VK_SPACE = 0x20
 VK_RETURN = 0x0D
@@ -139,8 +140,8 @@ user32.CreateWindowExW.argtypes = [
 user32.DestroyWindow.restype = ctypes.wintypes.BOOL
 user32.DestroyWindow.argtypes = [ctypes.wintypes.HWND]
 
-# GetMessageW(MSG*, HWND, UINT, UINT) -> BOOL
-user32.GetMessageW.restype = ctypes.wintypes.BOOL
+# GetMessageW(MSG*, HWND, UINT, UINT) -> int (not BOOL: returns -1, 0, or positive)
+user32.GetMessageW.restype = ctypes.c_int
 user32.GetMessageW.argtypes = [
     POINTER(MSG),
     ctypes.wintypes.HWND,
@@ -199,9 +200,9 @@ class HotkeyId(IntEnum):
 
 # (modifiers, virtual-key) for each hotkey
 _HOTKEY_BINDINGS: dict[HotkeyId, tuple[int, int]] = {
-    HotkeyId.TOGGLE:    (MOD_CONTROL | MOD_ALT, VK_SPACE),
-    HotkeyId.OVERRIDE:  (MOD_CONTROL | MOD_ALT, VK_RETURN),
-    HotkeyId.EMERGENCY: (MOD_CONTROL | MOD_ALT, VK_S),
+    HotkeyId.TOGGLE:    (MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_SPACE),
+    HotkeyId.OVERRIDE:  (MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_RETURN),
+    HotkeyId.EMERGENCY: (MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_S),
 }
 
 

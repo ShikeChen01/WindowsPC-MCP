@@ -55,8 +55,10 @@ COLOR_WAITING = 0x00808080          # Gray — agent waiting for gap
 # declare locally to keep overlay self-contained)
 # ---------------------------------------------------------------------------
 
+LRESULT = ctypes.c_ssize_t
+
 WNDPROC = ctypes.WINFUNCTYPE(
-    ctypes.c_long,           # LRESULT
+    LRESULT,                 # LRESULT (pointer-sized)
     ctypes.wintypes.HWND,    # hWnd
     ctypes.wintypes.UINT,    # uMsg
     ctypes.wintypes.WPARAM,  # wParam
@@ -83,9 +85,9 @@ class WNDCLASSW(ctypes.Structure):
 # Win32 API bindings
 # ---------------------------------------------------------------------------
 
-user32 = ctypes.windll.user32
-kernel32 = ctypes.windll.kernel32
-gdi32 = ctypes.windll.gdi32
+user32 = ctypes.WinDLL("user32", use_last_error=True)
+kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+gdi32 = ctypes.WinDLL("gdi32", use_last_error=True)
 
 # RegisterClassW
 user32.RegisterClassW.restype = ctypes.wintypes.ATOM
@@ -145,7 +147,7 @@ user32.SetLayeredWindowAttributes.argtypes = [
 ]
 
 # DefWindowProcW
-user32.DefWindowProcW.restype = ctypes.c_long
+user32.DefWindowProcW.restype = LRESULT
 user32.DefWindowProcW.argtypes = [
     ctypes.wintypes.HWND,
     ctypes.wintypes.UINT,
@@ -194,9 +196,10 @@ user32.FillRect.argtypes = [
 kernel32.GetModuleHandleW.restype = ctypes.wintypes.HMODULE
 kernel32.GetModuleHandleW.argtypes = [ctypes.wintypes.LPCWSTR]
 
-# GetLastError
-kernel32.GetLastError.restype = ctypes.wintypes.DWORD
-kernel32.GetLastError.argtypes = []
+# GetAncestor(HWND, UINT) -> HWND
+GA_ROOT = 2
+user32.GetAncestor.restype = ctypes.wintypes.HWND
+user32.GetAncestor.argtypes = [ctypes.wintypes.HWND, ctypes.wintypes.UINT]
 
 
 # ---------------------------------------------------------------------------
@@ -283,9 +286,10 @@ class GhostCursorOverlay:
 
         atom = user32.RegisterClassW(ctypes.byref(wc))
         if not atom:
-            err = kernel32.GetLastError()
-            log.error("RegisterClassW failed for '%s', error %d", _OVERLAY_WINDOW_CLASS, err)
-            return
+            err = ctypes.get_last_error()
+            if err != 1410:  # ERROR_CLASS_ALREADY_EXISTS
+                log.error("RegisterClassW failed for '%s', error %d", _OVERLAY_WINDOW_CLASS, err)
+                return
         self._class_atom = atom
 
         ex_style = WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST | WS_EX_TOOLWINDOW
@@ -304,7 +308,7 @@ class GhostCursorOverlay:
             None,   # lpParam
         )
         if not hwnd:
-            err = kernel32.GetLastError()
+            err = ctypes.get_last_error()
             log.error("CreateWindowExW failed for ghost cursor, error %d", err)
             return
 
@@ -328,12 +332,15 @@ class GhostCursorOverlay:
         self._x = x
         self._y = y
         if self._hwnd is not None:
+            flags = SWP_NOACTIVATE
+            if self._state is not CursorState.HIDDEN:
+                flags |= SWP_SHOWWINDOW
             user32.SetWindowPos(
                 self._hwnd,
                 HWND_TOPMOST,
                 x, y,
                 self.CURSOR_SIZE, self.CURSOR_SIZE,
-                SWP_NOACTIVATE | SWP_SHOWWINDOW,
+                flags,
             )
 
     def set_state(self, state: CursorState) -> None:
@@ -431,8 +438,12 @@ class ConflictDetector:
         if not agent_hwnd:
             return None
 
-        # Compare the two HWNDs.
-        if human_hwnd == agent_hwnd:
+        # Normalize to root windows so child/owned windows compare equal.
+        human_root = user32.GetAncestor(human_hwnd, GA_ROOT) or human_hwnd
+        agent_root = user32.GetAncestor(agent_hwnd, GA_ROOT) or agent_hwnd
+
+        # Compare the two root HWNDs.
+        if human_root == agent_root:
             # Conflict! Retrieve the window title.
             buf = ctypes.create_unicode_buffer(256)
             user32.GetWindowTextW(agent_hwnd, buf, 256)

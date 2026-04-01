@@ -24,7 +24,7 @@ def dm() -> MagicMock:
     """Mock DesktopManager."""
     mock = MagicMock(spec=DesktopManager)
     mock.is_agent_active = False
-    mock._agent_desktop = 42  # Fake HDESK handle
+    mock.agent_desktop_handle = 42  # Fake HDESK handle
     return mock
 
 

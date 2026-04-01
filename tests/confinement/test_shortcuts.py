@@ -182,26 +182,26 @@ class TestGetBlockedReasonKnownReasons:
         assert fragment in reason.lower()
 
 
-class TestGetBlockedReasonNonCanonicalBlockedEntries:
-    """Shortcuts in BLOCKED_SHORTCUTS whose normalized form doesn't match the set.
+class TestGetBlockedReasonNormalizedEntries:
+    """Shortcuts that previously had non-canonical modifier order in BLOCKED_SHORTCUTS.
 
-    These are blocked by the win-modifier fallback, not by the BLOCKED_SHORTCUTS lookup.
+    After normalization at module load time, these all get their specific reasons.
     """
 
     @pytest.mark.parametrize(
-        "shortcut",
+        "shortcut,fragment",
         [
-            "win+shift+m",
-            "win+ctrl+d",
-            "win+ctrl+left",
-            "win+ctrl+right",
-            "win+ctrl+f4",
+            ("win+shift+m", "restores all minimised windows"),
+            ("win+ctrl+d", "creates a new virtual desktop"),
+            ("win+ctrl+left", "previous virtual desktop"),
+            ("win+ctrl+right", "next virtual desktop"),
+            ("win+ctrl+f4", "closes the current virtual desktop"),
         ],
     )
-    def test_blocked_via_win_fallback(self, shortcut):
+    def test_blocked_with_specific_reason(self, shortcut, fragment):
         assert is_shortcut_allowed(shortcut) is False
         reason = get_blocked_reason(shortcut)
-        assert "win modifier" in reason.lower()
+        assert fragment in reason.lower()
 
 
 class TestGetBlockedReasonUnknownBlocked:

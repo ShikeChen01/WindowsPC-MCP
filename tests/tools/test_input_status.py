@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+from unittest.mock import MagicMock
 
 import pytest
 
 from windowspc_mcp.desktop.gate import InputGate, InputMode
-from windowspc_mcp.tools.input_status import register_input_status_tool, _mode_descriptions
+from windowspc_mcp.tools.input_status import register, _mode_descriptions
 
 
 # ---------------------------------------------------------------------------
@@ -22,13 +23,49 @@ def gate() -> InputGate:
 
 @pytest.fixture()
 def input_status(gate: InputGate):
-    """The async tool function returned by register_input_status_tool."""
-    return register_input_status_tool(gate)
+    """Register InputStatus on a mock MCP and return the tool function."""
+    mock_mcp = MagicMock()
+    # Capture the function passed to @mcp.tool()
+    captured = {}
+
+    def tool_decorator(**kwargs):
+        def wrapper(fn):
+            captured["fn"] = fn
+            return fn
+        return wrapper
+
+    mock_mcp.tool = tool_decorator
+    register(mock_mcp, get_gate=lambda: gate)
+    return captured["fn"]
 
 
 def _run(coro):
     """Helper to run an async function synchronously."""
     return asyncio.run(coro)
+
+
+# ---------------------------------------------------------------------------
+# No gate available
+# ---------------------------------------------------------------------------
+
+
+class TestNoGate:
+    def test_returns_unknown_when_no_gate(self) -> None:
+        mock_mcp = MagicMock()
+        captured = {}
+
+        def tool_decorator(**kwargs):
+            def wrapper(fn):
+                captured["fn"] = fn
+                return fn
+            return wrapper
+
+        mock_mcp.tool = tool_decorator
+        register(mock_mcp, get_gate=None)
+        result = _run(captured["fn"]())
+        assert result["mode"] == "unknown"
+        assert result["agent_can_input"] is False
+        assert "not available" in result["description"]
 
 
 # ---------------------------------------------------------------------------

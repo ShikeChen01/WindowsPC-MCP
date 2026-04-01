@@ -44,8 +44,10 @@ TIMER_ID = 1
 # Win32 structures
 # ---------------------------------------------------------------------------
 
+LRESULT = ctypes.c_ssize_t
+
 WNDPROC = ctypes.WINFUNCTYPE(
-    ctypes.c_long,           # LRESULT
+    LRESULT,                 # LRESULT (pointer-sized)
     ctypes.wintypes.HWND,    # hWnd
     ctypes.wintypes.UINT,    # uMsg
     ctypes.wintypes.WPARAM,  # wParam
@@ -147,8 +149,8 @@ user32.SetTimer.argtypes = [
 user32.KillTimer.restype = ctypes.wintypes.BOOL
 user32.KillTimer.argtypes = [ctypes.wintypes.HWND, ctypes.wintypes.UINT]
 
-# GetMessageW(MSG*, HWND, UINT, UINT) -> BOOL
-user32.GetMessageW.restype = ctypes.wintypes.BOOL
+# GetMessageW(MSG*, HWND, UINT, UINT) -> int (not BOOL: returns -1, 0, or positive)
+user32.GetMessageW.restype = ctypes.c_int
 user32.GetMessageW.argtypes = [
     POINTER(MSG),
     ctypes.wintypes.HWND,
@@ -161,7 +163,7 @@ user32.TranslateMessage.restype = ctypes.wintypes.BOOL
 user32.TranslateMessage.argtypes = [POINTER(MSG)]
 
 # DispatchMessageW(MSG*) -> LRESULT
-user32.DispatchMessageW.restype = ctypes.c_long
+user32.DispatchMessageW.restype = LRESULT
 user32.DispatchMessageW.argtypes = [POINTER(MSG)]
 
 # PostThreadMessageW(DWORD, UINT, WPARAM, LPARAM) -> BOOL
@@ -197,7 +199,7 @@ user32.GetClientRect.argtypes = [
 ]
 
 # DefWindowProcW(HWND, UINT, WPARAM, LPARAM) -> LRESULT
-user32.DefWindowProcW.restype = ctypes.c_long
+user32.DefWindowProcW.restype = LRESULT
 user32.DefWindowProcW.argtypes = [
     ctypes.wintypes.HWND,
     ctypes.wintypes.UINT,
@@ -267,6 +269,9 @@ class ViewerWindow:
             frame_buffer: Shared FrameBuffer from DesktopCapture.
             fps: Repaint rate (should match capture FPS).
         """
+        if fps <= 0:
+            raise ValueError("fps must be positive")
+
         self._frame_buffer = frame_buffer
         self._fps = fps
 

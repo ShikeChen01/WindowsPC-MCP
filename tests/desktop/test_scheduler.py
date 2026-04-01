@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, call
 import pytest
 
 from windowspc_mcp.confinement.errors import AgentPreempted, InvalidStateError
-from windowspc_mcp.desktop.profiler import ActionProfiler, ActionType
+from windowspc_mcp.desktop.profiler import ActionProfiler, InputActionType
 from windowspc_mcp.desktop.scheduler import CursorScheduler, Instruction
 
 
@@ -39,18 +39,18 @@ def _make_scheduler(
 
 class TestInstruction:
     def test_set_result_and_wait(self):
-        instr = Instruction(ActionType.CLICK, lambda: None)
+        instr = Instruction(InputActionType.CLICK, lambda: None)
         instr.set_result(42)
         assert instr.wait(timeout=1.0) == 42
 
     def test_set_error_and_wait(self):
-        instr = Instruction(ActionType.CLICK, lambda: None)
+        instr = Instruction(InputActionType.CLICK, lambda: None)
         instr.set_error(ValueError("boom"))
         with pytest.raises(ValueError, match="boom"):
             instr.wait(timeout=1.0)
 
     def test_wait_timeout(self):
-        instr = Instruction(ActionType.CLICK, lambda: None)
+        instr = Instruction(InputActionType.CLICK, lambda: None)
         with pytest.raises(TimeoutError, match="timed out"):
             instr.wait(timeout=0.01)
 
@@ -106,7 +106,7 @@ class TestSubmit:
         sched, _, _ = _make_scheduler(agent_can_fire=True)
         sched.start()
         try:
-            result = sched.submit(ActionType.CLICK, lambda: "hello", timeout=2.0)
+            result = sched.submit(InputActionType.CLICK, lambda: "hello", timeout=2.0)
             assert result == "hello"
         finally:
             sched.stop()
@@ -119,21 +119,21 @@ class TestSubmit:
         sched.start()
         try:
             with pytest.raises(RuntimeError, match="kaboom"):
-                sched.submit(ActionType.CLICK, bad_fn, timeout=2.0)
+                sched.submit(InputActionType.CLICK, bad_fn, timeout=2.0)
         finally:
             sched.stop()
 
     def test_submit_when_not_running_raises(self):
         sched, _, _ = _make_scheduler()
         with pytest.raises(InvalidStateError, match="not running"):
-            sched.submit(ActionType.CLICK, lambda: None)
+            sched.submit(InputActionType.CLICK, lambda: None)
 
     def test_submit_times_out_when_gap_never_opens(self):
         sched, _, _ = _make_scheduler(agent_can_fire=False)
         sched.start()
         try:
             with pytest.raises(TimeoutError):
-                sched.submit(ActionType.CLICK, lambda: None, timeout=0.05)
+                sched.submit(InputActionType.CLICK, lambda: None, timeout=0.05)
         finally:
             sched.stop()
 
@@ -154,7 +154,7 @@ class TestStopRejectsPending:
 
         def submitter():
             try:
-                sched.submit(ActionType.CLICK, lambda: None, timeout=5.0)
+                sched.submit(InputActionType.CLICK, lambda: None, timeout=5.0)
             except Exception as e:
                 result_holder["error"] = e
 
@@ -193,7 +193,7 @@ class TestMonitorRespect:
 
         def submitter():
             result_holder["result"] = sched.submit(
-                ActionType.CLICK, action, timeout=2.0,
+                InputActionType.CLICK, action, timeout=2.0,
             )
 
         t = threading.Thread(target=submitter)
@@ -222,7 +222,7 @@ class TestProfilerRecording:
         sched, _, profiler = _make_scheduler(agent_can_fire=True)
         sched.start()
         try:
-            sched.submit(ActionType.MOVE, lambda: None, timeout=2.0)
+            sched.submit(InputActionType.MOVE, lambda: None, timeout=2.0)
             # Give the dispatch loop time to complete
             time.sleep(0.02)
         finally:
@@ -230,7 +230,7 @@ class TestProfilerRecording:
 
         profiler.record.assert_called_once()
         call_args = profiler.record.call_args
-        assert call_args[0][0] == ActionType.MOVE
+        assert call_args[0][0] == InputActionType.MOVE
         # Second arg is actual_ms (a positive float)
         assert call_args[0][1] >= 0.0
 
@@ -242,13 +242,13 @@ class TestProfilerRecording:
         sched.start()
         try:
             with pytest.raises(ValueError):
-                sched.submit(ActionType.KEY, bad_fn, timeout=2.0)
+                sched.submit(InputActionType.KEY, bad_fn, timeout=2.0)
             time.sleep(0.02)
         finally:
             sched.stop()
 
         profiler.record.assert_called_once()
-        assert profiler.record.call_args[0][0] == ActionType.KEY
+        assert profiler.record.call_args[0][0] == InputActionType.KEY
 
 
 # ---------------------------------------------------------------------------
@@ -283,7 +283,7 @@ class TestCursorLock:
             return "ok"
 
         try:
-            result = sched.submit(ActionType.CLICK, slow_action, timeout=2.0)
+            result = sched.submit(InputActionType.CLICK, slow_action, timeout=2.0)
             assert result == "ok"
             assert lock_was_held.is_set(), "cursor_lock was not held during execution"
         finally:
@@ -309,7 +309,7 @@ class TestQueueDepth:
         for _ in range(3):
             t = threading.Thread(
                 target=lambda: _ignore_errors(
-                    lambda: sched.submit(ActionType.CLICK, lambda: None, timeout=1.0),
+                    lambda: sched.submit(InputActionType.CLICK, lambda: None, timeout=1.0),
                 ),
             )
             t.start()
@@ -349,7 +349,7 @@ class TestFIFOOrder:
             t = threading.Thread(
                 target=lambda idx=i: _ignore_errors(
                     lambda: sched.submit(
-                        ActionType.CLICK, make_action(idx), timeout=2.0,
+                        InputActionType.CLICK, make_action(idx), timeout=2.0,
                     ),
                 ),
             )
@@ -379,7 +379,7 @@ class TestFIFOOrder:
 
 class TestComplexity:
     def test_instruction_stores_complexity(self):
-        instr = Instruction(ActionType.STRING, lambda: None, complexity=3.5)
+        instr = Instruction(InputActionType.STRING, lambda: None, complexity=3.5)
         assert instr.complexity == 3.5
 
 

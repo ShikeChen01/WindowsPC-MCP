@@ -50,10 +50,13 @@ def win32(monkeypatch):
 
     mocks = type("Win32Mocks", (), {})()
 
+    # -- ctypes.get_last_error --
+    monkeypatch.setattr(ctypes, "get_last_error", lambda: mocks._last_error)
+    mocks._last_error = 0
+
     # -- kernel32 --
     mock_kernel32 = MagicMock()
     mock_kernel32.GetModuleHandleW.return_value = _FAKE_HINSTANCE
-    mock_kernel32.GetLastError.return_value = 0
     monkeypatch.setattr(mod, "kernel32", mock_kernel32)
     mocks.kernel32 = mock_kernel32
 
@@ -73,6 +76,7 @@ def win32(monkeypatch):
     mock_user32.GetCursorPos.return_value = True
     mock_user32.WindowFromPoint.return_value = _FAKE_HWND
     mock_user32.GetWindowTextW.return_value = 7  # length of "Notepad"
+    mock_user32.GetAncestor.side_effect = lambda hwnd, flags: hwnd  # identity
     monkeypatch.setattr(mod, "user32", mock_user32)
     mocks.user32 = mock_user32
 
@@ -170,10 +174,28 @@ class TestGhostCursorOverlayPosition:
 
         assert overlay.position == (100, 200)
 
-    def test_move_to_calls_set_window_pos(self, win32, overlay):
+    def test_move_to_calls_set_window_pos_hidden(self, win32, overlay):
+        """move_to in HIDDEN state should NOT include SWP_SHOWWINDOW."""
         from windowspc_mcp.desktop.overlay import HWND_TOPMOST
 
         overlay.create()
+        overlay.move_to(100, 200)
+
+        win32.user32.SetWindowPos.assert_called_once_with(
+            _FAKE_HWND,
+            HWND_TOPMOST,
+            100, 200,
+            overlay.CURSOR_SIZE, overlay.CURSOR_SIZE,
+            SWP_NOACTIVATE,
+        )
+
+    def test_move_to_calls_set_window_pos_visible(self, win32, overlay):
+        """move_to in WORKING state should include SWP_SHOWWINDOW."""
+        from windowspc_mcp.desktop.overlay import CursorState, HWND_TOPMOST
+
+        overlay.create()
+        overlay.set_state(CursorState.WORKING)
+        win32.user32.SetWindowPos.reset_mock()
         overlay.move_to(100, 200)
 
         win32.user32.SetWindowPos.assert_called_once_with(

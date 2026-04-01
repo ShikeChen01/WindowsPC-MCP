@@ -36,6 +36,8 @@ class InputDecayMonitor:
                          300ms = waits for real idle moments.
             threshold: Activity level below which agent_can_fire() returns True.
         """
+        if half_life_ms <= 0:
+            raise ValueError(f"half_life_ms must be positive, got {half_life_ms}")
         self._lambda = math.log(2) / half_life_ms
         self._threshold = threshold
         self._activity = 0.0
@@ -88,6 +90,8 @@ class InputDecayMonitor:
         """
         with self._lock:
             if half_life_ms is not None:
+                if half_life_ms <= 0:
+                    raise ValueError(f"half_life_ms must be positive, got {half_life_ms}")
                 self._lambda = math.log(2) / half_life_ms
             if threshold is not None:
                 self._threshold = threshold

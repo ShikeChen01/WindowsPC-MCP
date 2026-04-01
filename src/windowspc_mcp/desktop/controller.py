@@ -106,17 +106,29 @@ class DesktopController:
     def stop(self) -> None:
         """Clean shutdown.
 
-        1. Stop hotkey service.
-        2. Switch to user desktop.
-        3. Destroy agent desktop.
+        1. Stop viewer.
+        2. Stop hotkey service.
+        3. Switch to user desktop.
+        4. Destroy agent desktop.
+
+        Each step is exception-safe so that a failure in one does not
+        prevent the remaining steps from executing.
         """
         with self._lock:
             if not self._started:
                 return
-            self._stop_viewer()
-            self._hotkeys.stop()
-            self._dm.switch_to_user()
-            self._dm.destroy()
+            errors: list[str] = []
+            for action, name in [
+                (self._stop_viewer, "stop_viewer"),
+                (self._hotkeys.stop, "hotkeys.stop"),
+                (self._dm.switch_to_user, "switch_to_user"),
+                (self._dm.destroy, "destroy"),
+            ]:
+                try:
+                    action()
+                except Exception:
+                    log.exception("Error during %s", name)
+                    errors.append(name)
             self._started = False
             log.info("DesktopController stopped")
 
@@ -205,9 +217,11 @@ class DesktopController:
             self._gate.set_mode(restored)
             self._pre_override_mode = None
 
-            # Switch desktop if the restored mode needs the agent desktop.
+            # Switch desktop based on the restored mode.
             if restored in _AGENT_DESKTOP_MODES:
                 self._dm.switch_to_agent()
+            else:
+                self._dm.switch_to_user()
 
             log.info("Resumed from override -> %s", restored.name)
 
@@ -217,9 +231,13 @@ class DesktopController:
         Called by Ctrl+Alt+Break hotkey.
 
         1. Set InputGate to EMERGENCY_STOP (terminal).
-        2. Switch to user desktop.
-        3. Destroy agent desktop (kills processes).
-        4. Stop hotkey service.
+        2. Stop viewer.
+        3. Switch to user desktop.
+        4. Destroy agent desktop (kills processes).
+        5. Stop hotkey service.
+
+        Each teardown step is exception-safe so that a failure in one
+        does not prevent the remaining steps from executing.
         """
         with self._lock:
             current = self._gate.mode
@@ -232,10 +250,16 @@ class DesktopController:
             )
 
             self._gate.set_mode(InputMode.EMERGENCY_STOP)
-            self._stop_viewer()
-            self._dm.switch_to_user()
-            self._dm.destroy()
-            self._hotkeys.stop()
+            for action, name in [
+                (self._stop_viewer, "stop_viewer"),
+                (self._dm.switch_to_user, "switch_to_user"),
+                (self._dm.destroy, "destroy"),
+                (self._hotkeys.stop, "hotkeys.stop"),
+            ]:
+                try:
+                    action()
+                except Exception:
+                    log.exception("Error during emergency %s", name)
             self._started = False
 
     # ------------------------------------------------------------------
@@ -244,7 +268,7 @@ class DesktopController:
 
     def _start_viewer(self) -> None:
         """Start desktop capture and viewer window.  Must be called with lock held."""
-        desktop_handle = self._dm._agent_desktop
+        desktop_handle = self._dm.agent_desktop_handle
         if desktop_handle is None:
             log.warning("Cannot start viewer: no agent desktop handle")
             return

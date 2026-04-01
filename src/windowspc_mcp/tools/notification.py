@@ -18,8 +18,9 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
     @with_tool_name("Notification")
     def notification(title: str, message: str) -> str:
         # Escape single quotes for use inside PowerShell string
-        safe_title = title.replace("'", "\\'")
-        safe_message = message.replace("'", "\\'")
+        # PowerShell uses doubled single quotes, not backslash escaping
+        safe_title = title.replace("'", "''")
+        safe_message = message.replace("'", "''")
 
         ps_script = f"""
 [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null

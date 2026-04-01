@@ -16,7 +16,7 @@ from typing import Any, Callable
 
 from windowspc_mcp.confinement.errors import AgentPreempted, InvalidStateError
 from windowspc_mcp.desktop.monitor import InputDecayMonitor
-from windowspc_mcp.desktop.profiler import ActionProfiler, ActionType
+from windowspc_mcp.desktop.profiler import ActionProfiler, InputActionType
 
 
 class Instruction:
@@ -24,7 +24,7 @@ class Instruction:
 
     def __init__(
         self,
-        action_type: ActionType,
+        action_type: InputActionType,
         execute_fn: Callable[[], Any],
         complexity: float = 1.0,
     ) -> None:
@@ -73,6 +73,7 @@ class CursorScheduler:
         self._profiler = profiler
         self._queue: deque[Instruction] = deque()
         self._cursor_lock = threading.Lock()  # When held, human cursor frozen
+        self._submit_lock = threading.Lock()  # Atomicity between submit() and stop()
         self._running = False
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
@@ -90,7 +91,8 @@ class CursorScheduler:
 
     def stop(self) -> None:
         """Stop the dispatch loop. Reject all pending instructions."""
-        self._running = False
+        with self._submit_lock:
+            self._running = False
         self._stop_event.set()
         # Drain queue -- reject pending instructions
         while self._queue:
@@ -102,7 +104,7 @@ class CursorScheduler:
 
     def submit(
         self,
-        action_type: ActionType,
+        action_type: InputActionType,
         execute_fn: Callable[[], Any],
         complexity: float = 1.0,
         timeout: float | None = None,
@@ -114,11 +116,11 @@ class CursorScheduler:
         Raises AgentPreempted if scheduler stops while waiting.
         Raises TimeoutError if instruction doesn't execute in time.
         """
-        if not self._running:
-            raise InvalidStateError("Scheduler not running")
-
         instruction = Instruction(action_type, execute_fn, complexity)
-        self._queue.append(instruction)
+        with self._submit_lock:
+            if not self._running:
+                raise InvalidStateError("Scheduler not running")
+            self._queue.append(instruction)
         return instruction.wait(timeout or self.DEFAULT_TIMEOUT_S)
 
     def _dispatch_loop(self) -> None:
@@ -129,9 +131,8 @@ class CursorScheduler:
                 continue
 
             if self._monitor.agent_can_fire():
-                instruction = self._queue[0]
+                instruction = self._queue.popleft()
                 self._fire(instruction)
-                self._queue.popleft()
             else:
                 self._stop_event.wait(self.POLL_INTERVAL_MS / 1000)
 

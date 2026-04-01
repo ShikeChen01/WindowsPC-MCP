@@ -5,6 +5,8 @@ import threading
 from enum import Enum
 from typing import Callable, Optional
 
+from windowspc_mcp.confinement.errors import InvalidStateError
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,6 +25,41 @@ class ServerState(Enum):
 
 class ServerStateManager:
     """Manages server state transitions and availability."""
+
+    _VALID_TRANSITIONS: dict[ServerState, set[ServerState]] = {
+        ServerState.INIT: {
+            ServerState.READY,
+            ServerState.DRIVER_MISSING,
+            ServerState.CREATING_DISPLAY,
+            ServerState.SHUTTING_DOWN,
+        },
+        ServerState.DRIVER_MISSING: {ServerState.INIT, ServerState.SHUTTING_DOWN},
+        ServerState.CREATING_DISPLAY: {
+            ServerState.READY,
+            ServerState.CREATE_FAILED,
+            ServerState.SHUTTING_DOWN,
+        },
+        ServerState.CREATE_FAILED: {
+            ServerState.CREATING_DISPLAY,
+            ServerState.SHUTTING_DOWN,
+        },
+        ServerState.READY: {
+            ServerState.DEGRADED,
+            ServerState.RECOVERING,
+            ServerState.SHUTTING_DOWN,
+        },
+        ServerState.DEGRADED: {
+            ServerState.READY,
+            ServerState.RECOVERING,
+            ServerState.SHUTTING_DOWN,
+        },
+        ServerState.RECOVERING: {
+            ServerState.READY,
+            ServerState.DEGRADED,
+            ServerState.SHUTTING_DOWN,
+        },
+        ServerState.SHUTTING_DOWN: set(),
+    }
 
     def __init__(self) -> None:
         """Initialize the state manager with INIT state."""
@@ -51,6 +88,12 @@ class ServerStateManager:
         """Check if unconfined operations are available (not INIT or SHUTTING_DOWN)."""
         return self._state not in (ServerState.INIT, ServerState.SHUTTING_DOWN)
 
+    @property
+    def degraded_reason(self) -> str:
+        """The reason for DEGRADED state, or None if not degraded."""
+        with self._lock:
+            return self._degraded_reason
+
     def transition(self, new_state: ServerState, reason: Optional[str] = None) -> None:
         """
         Transition to a new state.
@@ -58,9 +101,17 @@ class ServerStateManager:
         Args:
             new_state: The target ServerState
             reason: Optional reason for the transition (stored for DEGRADED state)
+
+        Raises:
+            InvalidStateError: If the transition is not allowed by the state machine.
         """
         with self._lock:
             old_state = self._state
+            allowed = self._VALID_TRANSITIONS.get(old_state, set())
+            if new_state is not old_state and new_state not in allowed:
+                raise InvalidStateError(
+                    f"Invalid state transition: {old_state.value} -> {new_state.value}"
+                )
             self._state = new_state
 
             if new_state == ServerState.DEGRADED:

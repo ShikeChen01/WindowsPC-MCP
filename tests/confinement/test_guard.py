@@ -3,6 +3,7 @@
 import pytest
 
 from windowspc_mcp.confinement.engine import ConfinementEngine
+from windowspc_mcp.confinement.errors import ConfinementError
 from windowspc_mcp.confinement.guard import ToolGuard
 from windowspc_mcp.server import ServerStateManager, ServerState
 from tests.conftest import MockBounds
@@ -49,11 +50,10 @@ class TestShuttingDownBlocksAll:
         assert result is not None
         assert "shutting down" in result.lower()
 
-    def test_blocks_unknown_tool(self, state_manager, guard):
+    def test_unknown_tool_raises_confinement_error(self, state_manager, guard):
         state_manager.transition(ServerState.SHUTTING_DOWN)
-        result = guard.check("SomeFutureTool")
-        assert result is not None
-        assert "shutting down" in result.lower()
+        with pytest.raises(ConfinementError, match="Unknown tool"):
+            guard.check("SomeFutureTool")
 
 
 # ---------------------------------------------------------------------------
@@ -130,6 +130,7 @@ class TestWriteInDegraded:
 
 class TestWriteInCreateFailed:
     def test_click_blocked(self, state_manager, guard):
+        state_manager.transition(ServerState.CREATING_DISPLAY)
         state_manager.transition(ServerState.CREATE_FAILED)
         result = guard.check("Click")
         assert result is not None
@@ -137,6 +138,7 @@ class TestWriteInCreateFailed:
         assert "Click" in result
 
     def test_scroll_blocked(self, state_manager, guard):
+        state_manager.transition(ServerState.CREATING_DISPLAY)
         state_manager.transition(ServerState.CREATE_FAILED)
         result = guard.check("Scroll")
         assert result is not None
@@ -182,6 +184,7 @@ class TestReadInDriverMissing:
 
 class TestReadInNonAvailableState:
     def test_create_failed_blocks_read(self, state_manager, guard):
+        state_manager.transition(ServerState.CREATING_DISPLAY)
         state_manager.transition(ServerState.CREATE_FAILED)
         result = guard.check("Screenshot")
         assert result is not None
@@ -194,6 +197,7 @@ class TestReadInNonAvailableState:
         assert "gui not available" in result.lower()
 
     def test_error_includes_state_value(self, state_manager, guard):
+        state_manager.transition(ServerState.CREATING_DISPLAY)
         state_manager.transition(ServerState.CREATE_FAILED)
         result = guard.check("Scrape")
         assert "create_failed" in result.lower()
@@ -228,18 +232,32 @@ class TestReadInDegraded:
 
 class TestToolNameInErrorMessages:
     @pytest.mark.parametrize(
-        "state,tool",
-        [
-            (ServerState.INIT, "Click"),
-            (ServerState.INIT, "Screenshot"),
-            (ServerState.DRIVER_MISSING, "Type"),
-            (ServerState.DRIVER_MISSING, "Snapshot"),
-            (ServerState.CREATE_FAILED, "Scroll"),
-            (ServerState.CREATE_FAILED, "Scrape"),
-        ],
+        "tool",
+        ["Click", "Screenshot"],
     )
-    def test_tool_name_in_error(self, state_manager, guard, state, tool):
-        state_manager.transition(state)
+    def test_tool_name_in_init_error(self, state_manager, guard, tool):
+        # state_manager starts in INIT
+        result = guard.check(tool)
+        assert result is not None
+        assert tool in result, f"Expected '{tool}' in error message: {result}"
+
+    @pytest.mark.parametrize(
+        "tool",
+        ["Type", "Snapshot"],
+    )
+    def test_tool_name_in_driver_missing_error(self, state_manager, guard, tool):
+        state_manager.transition(ServerState.DRIVER_MISSING)
+        result = guard.check(tool)
+        assert result is not None
+        assert tool in result, f"Expected '{tool}' in error message: {result}"
+
+    @pytest.mark.parametrize(
+        "tool",
+        ["Scroll", "Scrape"],
+    )
+    def test_tool_name_in_create_failed_error(self, state_manager, guard, tool):
+        state_manager.transition(ServerState.CREATING_DISPLAY)
+        state_manager.transition(ServerState.CREATE_FAILED)
         result = guard.check(tool)
         assert result is not None
         assert tool in result, f"Expected '{tool}' in error message: {result}"

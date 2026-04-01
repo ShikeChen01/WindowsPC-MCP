@@ -15,10 +15,10 @@ WTS_SESSION_UNLOCK = 0x8
 WM_QUIT = 0x0012
 HWND_MESSAGE = ctypes.wintypes.HWND(-3)
 
-_user32 = ctypes.windll.user32
-_kernel32 = ctypes.windll.kernel32
+_user32 = ctypes.WinDLL("user32", use_last_error=True)
+_kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 _kernel32.GetModuleHandleW.restype = ctypes.c_void_p
-_wtsapi32 = ctypes.windll.wtsapi32
+_wtsapi32 = ctypes.WinDLL("wtsapi32", use_last_error=True)
 
 WNDPROC = ctypes.WINFUNCTYPE(
     ctypes.c_long,

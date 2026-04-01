@@ -2,26 +2,31 @@
 
 from __future__ import annotations
 
-from windowspc_mcp.desktop.gate import InputGate, InputMode
+from windowspc_mcp.desktop.gate import InputMode
 
 
-def register_input_status_tool(gate: InputGate):
-    """Returns a tool function that can be registered with FastMCP."""
+def register(mcp, *, get_gate=None, **kwargs):
+    """Register the InputStatus tool."""
 
-    async def input_status() -> dict:
-        """Check the current input system status.
-
-        Returns the operating mode, whether agent can send input,
-        and queue information.
-        """
+    @mcp.tool(
+        name="InputStatus",
+        description="Check the current input mode and whether the agent can send input.",
+    )
+    async def InputStatus() -> dict:
+        """Check current input mode and whether the agent can send input."""
+        gate = get_gate() if callable(get_gate) else None
+        if gate is None:
+            return {
+                "mode": "unknown",
+                "agent_can_input": False,
+                "description": "Input gate not available",
+            }
         mode = gate.mode
         return {
             "mode": mode.value,
             "agent_can_input": mode in (InputMode.AGENT_SOLO, InputMode.COWORK),
-            "description": _mode_descriptions[mode],
+            "description": _mode_descriptions.get(mode, "Unknown mode"),
         }
-
-    return input_status
 
 
 _mode_descriptions = {

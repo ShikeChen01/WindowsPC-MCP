@@ -16,7 +16,7 @@ class ActionType(Enum):
     UNCONFINED = "unconfined"
 
 
-@dataclass
+@dataclass(frozen=True)
 class ScreenBounds:
     x: int
     y: int
@@ -82,21 +82,26 @@ class ConfinementEngine:
 
     def set_agent_bounds(self, bounds: Any) -> None:
         """Accept any object with x, y, width, height attributes."""
+        x, y, w, h = bounds.x, bounds.y, bounds.width, bounds.height
+        if w <= 0 or h <= 0:
+            raise ConfinementError(f"Invalid bounds: width={w}, height={h} must be positive")
         with self._lock:
-            self._bounds = ScreenBounds(
-                x=bounds.x,
-                y=bounds.y,
-                width=bounds.width,
-                height=bounds.height,
-            )
+            self._bounds = ScreenBounds(x=x, y=y, width=w, height=h)
 
     def clear_bounds(self) -> None:
         with self._lock:
             self._bounds = None
 
     def classify_action(self, tool_name: str) -> ActionType:
-        """Return the ActionType for the given tool name. Defaults to UNCONFINED."""
-        return _TOOL_ACTIONS.get(tool_name, ActionType.UNCONFINED)
+        """Return the ActionType for the given tool name.
+
+        Raises:
+            ConfinementError: If tool_name is not registered (fail-closed).
+        """
+        try:
+            return _TOOL_ACTIONS[tool_name]
+        except KeyError:
+            raise ConfinementError(f"Unknown tool: {tool_name!r}")
 
     def validate_and_translate(self, rel_x: int, rel_y: int) -> tuple[int, int]:
         """Validate relative coordinates and translate to absolute screen coordinates.
@@ -138,12 +143,12 @@ class ConfinementEngine:
     def validate_absolute_point(self, abs_x: int, abs_y: int) -> None:
         """Raise ConfinementError if the absolute point is not on the agent screen."""
         with self._lock:
-            if not self.is_point_on_agent_screen(abs_x, abs_y):
-                if self._bounds is None:
-                    raise ConfinementError(
-                        "no agent display assigned — cannot validate absolute point"
-                    )
-                b = self._bounds
+            if self._bounds is None:
+                raise ConfinementError(
+                    "no agent display assigned — cannot validate absolute point"
+                )
+            b = self._bounds
+            if not (b.left <= abs_x < b.right and b.top <= abs_y < b.bottom):
                 raise ConfinementError(
                     f"absolute point ({abs_x}, {abs_y}) is not on the agent screen "
                     f"[{b.left}, {b.top}) to ({b.right}, {b.bottom})"

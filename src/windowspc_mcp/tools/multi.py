@@ -45,10 +45,10 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
     @guarded_tool(get_guard)
     @with_tool_name("MultiEdit")
     def multi_edit(fields: list) -> str:
-        from windowspc_mcp.uia.controls import click_at, type_text
         from windowspc_mcp.confinement.engine import ConfinementError
 
         ce = get_confinement()
+        svc = get_input_service()
         done = 0
 
         for i, field in enumerate(fields):
@@ -57,8 +57,8 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
                 y = int(field["y"])
                 text = str(field["text"])
                 abs_x, abs_y = ce.validate_and_translate(x, y)
-                click_at(abs_x, abs_y, "left", 1)
-                type_text(text)
+                svc.click(abs_x, abs_y, "left", 1)
+                svc.type_text(text)
                 done += 1
             except ConfinementError as e:
                 return f"Completed {done}/{len(fields)} fields. Stopped at field {i+1}: {e}"

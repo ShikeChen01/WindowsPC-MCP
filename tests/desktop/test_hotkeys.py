@@ -23,6 +23,7 @@ WM_QUIT = 0x0012
 
 MOD_CONTROL = 0x0002
 MOD_ALT = 0x0001
+MOD_NOREPEAT = 0x4000
 VK_SPACE = 0x20
 VK_RETURN = 0x0D
 VK_S = 0x53
@@ -182,9 +183,9 @@ class TestHotkeyRegistration:
         # Extract (hwnd, id, modifiers, vk) from each call
         registrations = {c[0][1]: (c[0][2], c[0][3]) for c in calls}
 
-        assert registrations[1] == (MOD_CONTROL | MOD_ALT, VK_SPACE)
-        assert registrations[2] == (MOD_CONTROL | MOD_ALT, VK_RETURN)
-        assert registrations[3] == (MOD_CONTROL | MOD_ALT, VK_S)
+        assert registrations[1] == (MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_SPACE)
+        assert registrations[2] == (MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_RETURN)
+        assert registrations[3] == (MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_S)
 
     def test_register_hotkey_uses_correct_hwnd(self, win32, service, callbacks):
         """All RegisterHotKey calls should use the created HWND."""

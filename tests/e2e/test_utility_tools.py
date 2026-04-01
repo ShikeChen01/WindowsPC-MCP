@@ -363,10 +363,12 @@ class TestAppE2E:
         assert "https://example.com" in cmd_arg
 
     def test_guard_blocks_in_non_ready_state(self, stack):
-        stack.state_mgr.transition(ServerState.INIT)
+        stack.state_mgr.transition(
+            ServerState.DEGRADED, reason="display lost"
+        )
         result = _call(stack.mcp, "App", {"name": "notepad"})
         text = _text(result)
-        assert "cannot use" in text.lower() or "initializing" in text.lower()
+        assert "cannot use" in text.lower() or "degraded" in text.lower()
 
 
 # ===================================================================
@@ -427,11 +429,11 @@ class TestScreenshotE2E:
         data = _json_list(result)
         assert any("out of range" in d.get("data", "") for d in data)
 
-    def test_guard_blocks_in_init_state(self, stack):
-        stack.state_mgr.transition(ServerState.INIT)
+    def test_guard_blocks_in_recovering_state(self, stack):
+        stack.state_mgr.transition(ServerState.RECOVERING)
         result = _call(stack.mcp, "Screenshot", {"screen": "agent"})
         text = _text(result)
-        assert "cannot use" in text.lower() or "initializing" in text.lower()
+        assert "cannot use" in text.lower() or "recovering" in text.lower()
 
 
 # ===================================================================
@@ -931,35 +933,30 @@ class TestMultiToolsE2E:
             {"x": 100, "y": 50, "text": "Alice"},
             {"x": 100, "y": 150, "text": "Bob"},
         ]
-        with patch("windowspc_mcp.uia.controls.click_at") as mock_click, \
-             patch("windowspc_mcp.uia.controls.type_text") as mock_type:
-            result = _call(stack.mcp, "MultiEdit", {"fields": fields})
+        result = _call(stack.mcp, "MultiEdit", {"fields": fields})
         text = _text(result)
         assert "Completed 2/2 fields" in text
-        # Verify absolute coords were passed to click_at
-        first_click = mock_click.call_args_list[0]
+        # Verify absolute coords were passed to svc.click
+        svc = stack.input_svc
+        first_click = svc.click.call_args_list[0]
         assert first_click[0] == (3940, 50, "left", 1)
         # Verify type_text was called with the text
-        assert mock_type.call_args_list[0][0] == ("Alice",)
-        assert mock_type.call_args_list[1][0] == ("Bob",)
+        assert svc.type_text.call_args_list[0][0] == ("Alice",)
+        assert svc.type_text.call_args_list[1][0] == ("Bob",)
 
     def test_multi_edit_confinement_violation(self, stack):
         fields = [
             {"x": 100, "y": 50, "text": "ok"},
             {"x": 5000, "y": 50, "text": "bad"},  # way out of bounds
         ]
-        with patch("windowspc_mcp.uia.controls.click_at"), \
-             patch("windowspc_mcp.uia.controls.type_text"):
-            result = _call(stack.mcp, "MultiEdit", {"fields": fields})
+        result = _call(stack.mcp, "MultiEdit", {"fields": fields})
         text = _text(result)
         assert "Completed 1/2 fields" in text
         assert "out of bounds" in text.lower() or "stopped" in text.lower()
 
     def test_multi_edit_bad_field_spec(self, stack):
         fields = [{"x": 100, "text": "missing y"}]
-        with patch("windowspc_mcp.uia.controls.click_at"), \
-             patch("windowspc_mcp.uia.controls.type_text"):
-            result = _call(stack.mcp, "MultiEdit", {"fields": fields})
+        result = _call(stack.mcp, "MultiEdit", {"fields": fields})
         text = _text(result)
         assert "bad field" in text.lower() or "error" in text.lower()
 
@@ -1018,20 +1015,20 @@ class TestScrapeE2E:
 class TestGuardIntegration:
     """Verify that tools are properly blocked depending on server state."""
 
-    def test_unconfined_tools_work_in_init(self, stack):
-        """UNCONFINED tools like PowerShell/FileSystem should work even in INIT."""
-        stack.state_mgr.transition(ServerState.INIT)
+    def test_unconfined_tools_work_in_recovering(self, stack):
+        """UNCONFINED tools like PowerShell/FileSystem should work in RECOVERING."""
+        stack.state_mgr.transition(ServerState.RECOVERING)
         fake = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
         with patch("subprocess.run", return_value=fake):
             result = _call(stack.mcp, "PowerShell", {"command": "echo ok"})
         text = _text(result)
         assert "ok" in text
 
-    def test_read_tools_blocked_in_init(self, stack):
-        stack.state_mgr.transition(ServerState.INIT)
+    def test_read_tools_blocked_in_recovering(self, stack):
+        stack.state_mgr.transition(ServerState.RECOVERING)
         result = _call(stack.mcp, "Screenshot", {"screen": "agent"})
         text = _text(result)
-        assert "cannot use" in text.lower() or "initializing" in text.lower()
+        assert "cannot use" in text.lower() or "recovering" in text.lower()
 
     def test_write_tools_blocked_in_degraded(self, stack):
         stack.state_mgr.transition(ServerState.DEGRADED, reason="test")
@@ -1054,8 +1051,8 @@ class TestGuardIntegration:
         text = _text(result)
         assert "shutting down" in text.lower()
 
-    def test_driver_missing_blocks_write(self, stack):
-        stack.state_mgr.transition(ServerState.DRIVER_MISSING)
+    def test_recovering_blocks_write(self, stack):
+        stack.state_mgr.transition(ServerState.RECOVERING)
         result = _call(stack.mcp, "App", {"name": "x"})
         text = _text(result)
-        assert "driver" in text.lower() or "cannot use" in text.lower()
+        assert "recovering" in text.lower() or "cannot use" in text.lower()

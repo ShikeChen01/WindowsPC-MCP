@@ -8,13 +8,14 @@ Used by CursorScheduler to decide whether an action fits in a detected gap.
 from __future__ import annotations
 
 import statistics
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 
 
-class ActionType(Enum):
+class InputActionType(Enum):
     """Types of agent input actions."""
 
     MOVE = "move"
@@ -41,9 +42,10 @@ class ActionProfiler:
     EMA_ALPHA = 0.2  # Exponential moving average weight for runtime updates
 
     def __init__(self) -> None:
-        self._timings: dict[ActionType, ActionTiming] = {}
+        self._timings: dict[InputActionType, ActionTiming] = {}
+        self._lock = threading.Lock()
 
-    def calibrate(self, benchmark_fn: dict[ActionType, Callable[[], None]]) -> None:
+    def calibrate(self, benchmark_fn: dict[InputActionType, Callable[[], None]]) -> None:
         """Run startup calibration. Benchmark each action type 20x.
 
         Args:
@@ -61,30 +63,32 @@ class ActionProfiler:
                 samples.append(elapsed_ms)
 
             sorted_samples = sorted(samples)
-            self._timings[action_type] = ActionTiming(
-                mean=statistics.mean(samples),
-                p95=sorted_samples[int(len(sorted_samples) * 0.95)],
-                samples=len(samples),
-            )
+            with self._lock:
+                self._timings[action_type] = ActionTiming(
+                    mean=statistics.mean(samples),
+                    p95=sorted_samples[int(len(sorted_samples) * 0.95)],
+                    samples=len(samples),
+                )
 
     def set_default_timings(self) -> None:
         """Set reasonable defaults without calibration.
 
         For environments where benchmark isn't possible (tests, CI).
         """
-        defaults: dict[ActionType, tuple[float, float]] = {
-            ActionType.MOVE: (0.05, 0.1),  # very fast
-            ActionType.CLICK: (0.5, 1.0),  # move + down + up
-            ActionType.DOUBLE_CLICK: (1.0, 2.0),  # move + 2x(down+up)
-            ActionType.KEY: (0.1, 0.3),  # single key event
-            ActionType.STRING: (2.0, 5.0),  # per 4 chars
-            ActionType.SCROLL: (0.3, 0.8),  # single wheel event
-            ActionType.DRAG: (1.5, 3.0),  # down + move + up
+        defaults: dict[InputActionType, tuple[float, float]] = {
+            InputActionType.MOVE: (0.05, 0.1),  # very fast
+            InputActionType.CLICK: (0.5, 1.0),  # move + down + up
+            InputActionType.DOUBLE_CLICK: (1.0, 2.0),  # move + 2x(down+up)
+            InputActionType.KEY: (0.1, 0.3),  # single key event
+            InputActionType.STRING: (2.0, 5.0),  # per 4 chars
+            InputActionType.SCROLL: (0.3, 0.8),  # single wheel event
+            InputActionType.DRAG: (1.5, 3.0),  # down + move + up
         }
-        for action_type, (mean, p95) in defaults.items():
-            self._timings[action_type] = ActionTiming(mean=mean, p95=p95, samples=0)
+        with self._lock:
+            for action_type, (mean, p95) in defaults.items():
+                self._timings[action_type] = ActionTiming(mean=mean, p95=p95, samples=0)
 
-    def estimate(self, action_type: ActionType, complexity: float = 1.0) -> float:
+    def estimate(self, action_type: InputActionType, complexity: float = 1.0) -> float:
         """Estimate execution time in ms. Uses p95 (conservative).
 
         Args:
@@ -99,30 +103,34 @@ class ActionProfiler:
         Raises:
             KeyError: If action_type has no timing data.
         """
-        timing = self._timings[action_type]
-        return timing.p95 * complexity
+        with self._lock:
+            timing = self._timings[action_type]
+            return timing.p95 * complexity
 
-    def record(self, action_type: ActionType, actual_ms: float) -> None:
+    def record(self, action_type: InputActionType, actual_ms: float) -> None:
         """Update timing with actual measurement. Uses EMA.
 
         Called after every real execution to self-correct.
         """
-        if action_type not in self._timings:
-            self._timings[action_type] = ActionTiming(
-                mean=actual_ms, p95=actual_ms, samples=1
-            )
-            return
+        with self._lock:
+            if action_type not in self._timings:
+                self._timings[action_type] = ActionTiming(
+                    mean=actual_ms, p95=actual_ms, samples=1
+                )
+                return
 
-        t = self._timings[action_type]
-        t.mean = (1 - self.EMA_ALPHA) * t.mean + self.EMA_ALPHA * actual_ms
-        t.p95 = (1 - self.EMA_ALPHA) * t.p95 + self.EMA_ALPHA * max(t.p95, actual_ms)
-        t.samples += 1
+            t = self._timings[action_type]
+            t.mean = (1 - self.EMA_ALPHA) * t.mean + self.EMA_ALPHA * actual_ms
+            t.p95 = (1 - self.EMA_ALPHA) * t.p95 + self.EMA_ALPHA * max(t.p95, actual_ms)
+            t.samples += 1
 
-    def get_timing(self, action_type: ActionType) -> ActionTiming | None:
+    def get_timing(self, action_type: InputActionType) -> ActionTiming | None:
         """Get timing stats for an action type (for diagnostics)."""
-        return self._timings.get(action_type)
+        with self._lock:
+            return self._timings.get(action_type)
 
     @property
     def is_calibrated(self) -> bool:
         """True if any timings have been loaded."""
-        return len(self._timings) > 0
+        with self._lock:
+            return len(self._timings) > 0

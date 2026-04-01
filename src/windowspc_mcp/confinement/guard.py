@@ -3,7 +3,6 @@
 import logging
 from windowspc_mcp.server import ServerStateManager, ServerState
 from windowspc_mcp.confinement.engine import ConfinementEngine, ActionType
-from windowspc_mcp.confinement.errors import InvalidStateError, DisplayUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +31,7 @@ class ToolGuard:
                 if state == ServerState.DRIVER_MISSING:
                     return f"Cannot use {tool_name}: Parsec VDD driver not installed."
                 elif state == ServerState.DEGRADED:
-                    reason = self._state._degraded_reason or "unknown"
+                    reason = self._state.degraded_reason or "unknown"
                     return f"Cannot use {tool_name}: server degraded ({reason})."
                 else:
                     return f"Cannot use {tool_name}: agent screen not active. Call CreateScreen first."
