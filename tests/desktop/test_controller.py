@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
 from windowspc_mcp.confinement.errors import InvalidStateError
+from windowspc_mcp.desktop.capture import FrameBuffer
 from windowspc_mcp.desktop.controller import DesktopController
 from windowspc_mcp.desktop.gate import InputGate, InputMode
 from windowspc_mcp.desktop.hotkeys import HotkeyId, HotkeyService
@@ -23,6 +24,7 @@ def dm() -> MagicMock:
     """Mock DesktopManager."""
     mock = MagicMock(spec=DesktopManager)
     mock.is_agent_active = False
+    mock._agent_desktop = 42  # Fake HDESK handle
     return mock
 
 
@@ -39,14 +41,36 @@ def hotkeys() -> MagicMock:
 
 
 @pytest.fixture()
-def ctrl(dm: MagicMock, gate: InputGate, hotkeys: MagicMock) -> DesktopController:
+def mock_capture():
+    """Patch DesktopCapture so controller doesn't create real one."""
+    with patch("windowspc_mcp.desktop.controller.DesktopCapture") as cls:
+        instance = MagicMock()
+        instance.frame_buffer = FrameBuffer(width=1920, height=1080)
+        cls.return_value = instance
+        yield cls
+
+
+@pytest.fixture()
+def mock_viewer():
+    """Patch ViewerWindow so controller doesn't create real one."""
+    with patch("windowspc_mcp.desktop.controller.ViewerWindow") as cls:
+        cls.return_value = MagicMock()
+        yield cls
+
+
+@pytest.fixture()
+def ctrl(
+    dm: MagicMock, gate: InputGate, hotkeys: MagicMock,
+    mock_capture, mock_viewer,
+) -> DesktopController:
     """DesktopController wired with mocks (not started)."""
     return DesktopController(dm, gate, hotkeys)
 
 
 @pytest.fixture()
 def started_ctrl(
-    dm: MagicMock, gate: InputGate, hotkeys: MagicMock
+    dm: MagicMock, gate: InputGate, hotkeys: MagicMock,
+    mock_capture, mock_viewer,
 ) -> DesktopController:
     """DesktopController already started in AGENT_SOLO mode."""
     c = DesktopController(dm, gate, hotkeys)
@@ -54,6 +78,8 @@ def started_ctrl(
     # Reset call history so tests only see calls made after start().
     dm.reset_mock()
     hotkeys.reset_mock()
+    mock_capture.return_value.reset_mock()
+    mock_viewer.return_value.reset_mock()
     return c
 
 
@@ -447,3 +473,49 @@ class TestContextManager:
         # Should still clean up.
         hotkeys.stop.assert_called_once()
         dm.destroy.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Viewer integration
+# ---------------------------------------------------------------------------
+
+
+class TestViewerIntegration:
+    def test_start_creates_capture_and_viewer(
+        self, ctrl: DesktopController, dm: MagicMock, mock_capture, mock_viewer
+    ) -> None:
+        ctrl.start(InputMode.AGENT_SOLO)
+
+        mock_capture.assert_called_once()
+        capture_kwargs = mock_capture.call_args
+        assert capture_kwargs[1]["desktop_handle"] == 42
+        assert capture_kwargs[1]["width"] == 1920
+        assert capture_kwargs[1]["height"] == 1080
+        mock_capture.return_value.start.assert_called_once()
+
+        mock_viewer.assert_called_once()
+        mock_viewer.return_value.start.assert_called_once()
+
+    def test_stop_stops_viewer_and_capture(
+        self, started_ctrl: DesktopController, mock_capture, mock_viewer
+    ) -> None:
+        started_ctrl.stop()
+
+        mock_viewer.return_value.stop.assert_called_once()
+        mock_capture.return_value.stop.assert_called_once()
+
+    def test_emergency_stop_stops_viewer(
+        self, started_ctrl: DesktopController, mock_capture, mock_viewer
+    ) -> None:
+        started_ctrl.emergency_stop()
+
+        mock_viewer.return_value.stop.assert_called_once()
+        mock_capture.return_value.stop.assert_called_once()
+
+    def test_viewer_receives_capture_frame_buffer(
+        self, ctrl: DesktopController, mock_capture, mock_viewer
+    ) -> None:
+        ctrl.start(InputMode.AGENT_SOLO)
+
+        viewer_call = mock_viewer.call_args
+        assert viewer_call[1]["frame_buffer"] is mock_capture.return_value.frame_buffer

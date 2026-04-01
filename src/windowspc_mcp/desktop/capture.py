@@ -250,6 +250,14 @@ class DesktopCapture:
     # ------------------------------------------------------------------
 
     @property
+    def frame_buffer(self) -> FrameBuffer:
+        """The live shared FrameBuffer that the capture thread writes to.
+
+        Pass this to :class:`ViewerWindow` so it reads frames continuously.
+        """
+        return self._frame_buffer
+
+    @property
     def is_running(self) -> bool:
         return self._thread is not None and self._thread.is_alive()
 

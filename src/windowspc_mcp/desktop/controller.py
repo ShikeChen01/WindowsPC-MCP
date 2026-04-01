@@ -12,9 +12,11 @@ import threading
 from types import TracebackType
 
 from windowspc_mcp.confinement.errors import InvalidStateError
+from windowspc_mcp.desktop.capture import DesktopCapture
 from windowspc_mcp.desktop.gate import InputGate, InputMode
 from windowspc_mcp.desktop.hotkeys import HotkeyId, HotkeyService
 from windowspc_mcp.desktop.manager import DesktopManager
+from windowspc_mcp.desktop.viewer import ViewerWindow
 
 log = logging.getLogger(__name__)
 
@@ -41,14 +43,29 @@ class DesktopController:
         desktop_manager: DesktopManager,
         input_gate: InputGate,
         hotkey_service: HotkeyService,
+        *,
+        viewer_width: int = 1920,
+        viewer_height: int = 1080,
+        viewer_fps: int = 30,
     ) -> None:
-        """Wire components together.  Don't start anything yet."""
+        """Wire components together.  Don't start anything yet.
+
+        Args:
+            viewer_width: Agent desktop capture width (should match VDD resolution).
+            viewer_height: Agent desktop capture height (should match VDD resolution).
+            viewer_fps: Capture and display framerate.
+        """
         self._dm = desktop_manager
         self._gate = input_gate
         self._hotkeys = hotkey_service
         self._lock = threading.Lock()
         self._pre_override_mode: InputMode | None = None
         self._started = False
+        self._viewer_width = viewer_width
+        self._viewer_height = viewer_height
+        self._viewer_fps = viewer_fps
+        self._capture: DesktopCapture | None = None
+        self._viewer: ViewerWindow | None = None
 
     # ------------------------------------------------------------------
     # Public API
@@ -68,6 +85,9 @@ class DesktopController:
                 raise InvalidStateError("DesktopController is already started")
 
             self._dm.create_agent_desktop()
+
+            # Start desktop capture + viewer so user can watch agent desktop
+            self._start_viewer()
 
             self._hotkeys.start({
                 HotkeyId.TOGGLE: self.toggle_mode,
@@ -93,6 +113,7 @@ class DesktopController:
         with self._lock:
             if not self._started:
                 return
+            self._stop_viewer()
             self._hotkeys.stop()
             self._dm.switch_to_user()
             self._dm.destroy()
@@ -211,10 +232,50 @@ class DesktopController:
             )
 
             self._gate.set_mode(InputMode.EMERGENCY_STOP)
+            self._stop_viewer()
             self._dm.switch_to_user()
             self._dm.destroy()
             self._hotkeys.stop()
             self._started = False
+
+    # ------------------------------------------------------------------
+    # Viewer helpers (called with lock held)
+    # ------------------------------------------------------------------
+
+    def _start_viewer(self) -> None:
+        """Start desktop capture and viewer window.  Must be called with lock held."""
+        desktop_handle = self._dm._agent_desktop
+        if desktop_handle is None:
+            log.warning("Cannot start viewer: no agent desktop handle")
+            return
+
+        self._capture = DesktopCapture(
+            desktop_handle=desktop_handle,
+            width=self._viewer_width,
+            height=self._viewer_height,
+            fps=self._viewer_fps,
+        )
+        self._capture.start()
+
+        self._viewer = ViewerWindow(
+            frame_buffer=self._capture.frame_buffer,
+            fps=self._viewer_fps,
+        )
+        self._viewer.start()
+        log.info(
+            "Viewer started: %dx%d @ %d fps",
+            self._viewer_width, self._viewer_height, self._viewer_fps,
+        )
+
+    def _stop_viewer(self) -> None:
+        """Stop viewer and capture.  Must be called with lock held.  Idempotent."""
+        if self._viewer is not None:
+            self._viewer.stop()
+            self._viewer = None
+        if self._capture is not None:
+            self._capture.stop()
+            self._capture = None
+        log.debug("Viewer stopped")
 
     # ------------------------------------------------------------------
     # Properties
