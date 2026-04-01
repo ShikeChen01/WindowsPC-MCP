@@ -10,6 +10,7 @@ from .overlay import ConflictDetector, CursorState, GhostCursorOverlay
 from .profiler import ActionProfiler, ActionTiming, ActionType
 from .responses import format_gate_error
 from .scheduler import CursorScheduler, Instruction
+from .viewer import ViewerWindow
 
 __all__ = [
     "ActionProfiler",
@@ -31,5 +32,6 @@ __all__ = [
     "InputGate",
     "InputMode",
     "Instruction",
+    "ViewerWindow",
     "format_gate_error",
 ]
