@@ -418,17 +418,17 @@ CreateDesktop shares all system resources (CPU, RAM, disk, network). There is no
 
 ---
 
-## Open Questions
+## Resolved Design Decisions
 
-1. **COWORK cursor lock feedback** — Should the user see a visual indicator when cursor is locked during agent execution? A brief border flash or icon change could prevent confusion. Low priority — the lock is typically imperceptible.
+1. **COWORK cursor lock feedback** — No. The lock is typically <5ms and imperceptible. Adding visual indicators (border flash, icon change) hurts performance for no practical benefit.
 
-2. **Agent desktop resolution** — Should the agent desktop match the Parsec VDD virtual display resolution, or be independent? Matching simplifies coordinate mapping.
+2. **Agent desktop resolution** — Must match the Parsec VDD virtual display resolution. Coordinate mapping must also match the resolution for precise control. No independent resolution.
 
-3. **Streaming viewer interaction** — Can clicking in the streaming viewer window route input to the agent desktop? This would provide a COWORK entry point without hotkeys. Risk: accidental input forwarding.
+3. **Streaming viewer interaction** — No. The viewer is view-only, no interaction. To cowork, the user switches to the agent desktop via hotkey.
 
-4. **Process cleanup on mode switch** — When switching from AGENT_SOLO to HUMAN_HOME, should agent-launched processes be killed, suspended, or left running? Left running is simplest but wastes resources.
+4. **Process cleanup on mode switch** — No cleanup on mode switch. Processes are left running. A separate hotkey kills all agent processes, and auto-cleanup runs on application shutdown.
 
-5. **Adaptive decay parameters** — The ML hook for adaptive `half_life` and `threshold` is spec'd as a future enhancement. What data would we collect for training? Input event timestamps with gap/execution outcome labels.
+5. **Adaptive decay parameters** — Deferred. Not needed at this stage. The ML hook interface (`update_parameters`) is in place for future work.
 
 ---
 
@@ -466,7 +466,7 @@ Delivers: both actors on same desktop, time-shared cursor, human-priority schedu
 
 ### Phase 4: Polish + future hooks
 
-16. Adaptive parameter interface — ML-ready tuning for decay parameters
-17. Resource monitoring — Job Objects for agent process caps
-18. Viewer interaction — click-to-forward from streaming window
-19. Configurable hotkeys — user can rebind
+16. Resource monitoring — Job Objects for agent process caps
+17. Configurable hotkeys — user can rebind
+18. Agent process kill hotkey — separate hotkey to terminate all agent processes
+19. Adaptive decay parameters — ML-ready tuning (deferred, interface exists)
