@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "windowspc-custom": {
+      "command": "uv",
+      "args": ["run", "windowspc-mcp", "--transport", "stdio"]
+    }
+  }
+}
