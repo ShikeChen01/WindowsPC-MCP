@@ -6,7 +6,7 @@ This document traces real scenarios through every module to show how data flows.
 
 ## Startup
 
-```
+```text
 Server starts
     │
     ▼
@@ -44,7 +44,7 @@ After startup: agent desktop is live, hotkeys are listening, gate allows all inp
 
 Simplest case — no scheduling, no contention.
 
-```
+```text
 LLM calls Click(x=100, y=200)
     │
     ▼
@@ -75,7 +75,7 @@ SendInput(mouse_move + mouse_down + mouse_up)
 
 Both human and agent on the same desktop. Agent must wait for a gap.
 
-```
+```text
 LLM calls Click(x=100, y=200)
     │
     ▼
@@ -144,7 +144,7 @@ CursorScheduler._fire(instruction):
 
 Human wants control immediately. Agent is mid-work.
 
-```
+```text
 Human presses Ctrl+Alt+Enter
     │
     ▼
@@ -178,7 +178,7 @@ DesktopController.override():
 
 **Meanwhile, if agent tries to Click:**
 
-```
+```text
 AgentInputService.click(...)
     │
     ├── InputGate.check()
@@ -200,7 +200,7 @@ guarded_tool catches AgentPreempted
 
 ## Scenario 4: Human Releases Override
 
-```
+```text
 Human presses Ctrl+Alt+Enter again (or Ctrl+Alt+Space to toggle)
     │
     ▼
@@ -224,7 +224,7 @@ DesktopController.resume_from_override():
 
 ## Scenario 5: Mode Toggle Cycle
 
-```
+```text
 Human presses Ctrl+Alt+Space repeatedly:
 
 Press 1: AGENT_SOLO → COWORK
@@ -246,7 +246,7 @@ Press 3: HUMAN_HOME → AGENT_SOLO
 
 ## Scenario 6: Emergency Stop
 
-```
+```text
 Human presses Ctrl+Alt+S
     │
     ▼
@@ -278,7 +278,7 @@ DesktopController.emergency_stop():
 
 Agent and human both reach for the same window.
 
-```
+```text
 Human is clicking around in Notepad (HWND 0xABC)
 Agent wants to type in Notepad too
 
@@ -303,7 +303,7 @@ CursorScheduler dispatch loop:
 
 Tracking a real typing session:
 
-```
+```text
 Time 0ms:     Human presses 'H'     → on_input() → activity = 1.0
 Time 50ms:    Human presses 'e'     → decay to 0.79, then +1 = 1.79
 Time 100ms:   Human presses 'l'     → decay to 1.42, then +1 = 2.42
@@ -333,7 +333,7 @@ With half_life=150ms, activity halves every 150ms. After ~800ms of silence, the 
 
 ## Module Responsibility Summary
 
-```
+```text
 WHO DECIDES WHAT:
 
 "Can the agent send input right now?"

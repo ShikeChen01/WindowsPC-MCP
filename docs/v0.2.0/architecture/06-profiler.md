@@ -17,7 +17,7 @@ class ActionType(Enum):
 
 ## Lifecycle
 
-```
+```text
 Startup:    calibrate() or set_default_timings()
                     │
                     ▼

@@ -8,7 +8,7 @@ The COWORK dispatch loop. Queues agent instructions, waits for human idle gaps, 
 
 ## Instruction Lifecycle
 
-```
+```text
 MCP tool calls submit()
         │
         ▼

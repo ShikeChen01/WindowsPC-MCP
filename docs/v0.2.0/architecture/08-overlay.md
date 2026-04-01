@@ -8,7 +8,7 @@ A 32x32 pixel window that shows the agent's cursor position on the user's deskto
 
 ### Window Properties
 
-```
+```text
 Style:    WS_EX_LAYERED      — supports transparency
         | WS_EX_TRANSPARENT   — click-through (input passes to windows below)
         | WS_EX_TOPMOST       — always on top
@@ -48,7 +48,7 @@ Prevents the agent from interacting with the same window the human is using.
 
 ### How It Works
 
-```
+```text
 agent wants to click at (100, 200)
         │
         ▼

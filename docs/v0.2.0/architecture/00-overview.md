@@ -4,7 +4,7 @@ The `desktop/` package implements independent agent input: desktop isolation, mo
 
 ## Module Map
 
-```
+```text
 desktop/
 ├── manager.py      Win32 desktop lifecycle (CreateDesktop/Switch/Close)
 ├── hotkeys.py      Global hotkeys (Ctrl+Alt+Space/Enter/Break)
@@ -20,7 +20,7 @@ desktop/
 
 ## Dependency Graph
 
-```
+```text
 controller.py
 ├── manager.py       (desktop lifecycle)
 ├── hotkeys.py       (hotkey callbacks)
@@ -39,7 +39,7 @@ No circular dependencies. Each module has a single responsibility.
 
 ## Operating Modes
 
-```
+```text
 AGENT_SOLO ◄───► COWORK ◄───► HUMAN_HOME
      │               │              │
      └──────► HUMAN_OVERRIDE ◄─────┘

@@ -6,7 +6,7 @@ Detects human idle gaps using a single exponential decay variable. The core sche
 
 One state variable: `activity` (float).
 
-```
+```text
 On each human input event:
     activity += 1.0
 
@@ -17,7 +17,7 @@ Agent can fire when:
     activity < threshold
 ```
 
-```
+```text
 Human input:  ↓ ↓↓ ↓↓↓  ↓ ↓              ↓↓  ↓
 activity:    ─╱╲╱╲╱╲╱╲──╱╲╱╲──────────────╱╲──╱╲─
 threshold ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─╲─ ─ ─ ─ ─ ─ ─ ─

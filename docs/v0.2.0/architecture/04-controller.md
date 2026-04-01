@@ -30,7 +30,7 @@ class DesktopController:
 
 ## Toggle Cycle
 
-```
+```text
 AGENT_SOLO ──► COWORK ──► HUMAN_HOME ──► AGENT_SOLO
                                               │
                                          (loops back)
@@ -41,7 +41,7 @@ AGENT_SOLO ──► COWORK ──► HUMAN_HOME ──► AGENT_SOLO
 
 ## Override Mechanism
 
-```
+```text
 override():
     save current mode → _pre_override_mode
     set HUMAN_OVERRIDE
@@ -55,7 +55,7 @@ resume_from_override():
 
 ## Emergency Stop
 
-```
+```text
 emergency_stop():
     set EMERGENCY_STOP on gate (terminal)
     switch to user desktop

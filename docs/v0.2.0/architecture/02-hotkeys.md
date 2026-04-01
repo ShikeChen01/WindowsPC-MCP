@@ -38,7 +38,7 @@ class HotkeyService:
 
 ## How It Works
 
-```
+```text
 start() ──► spawn daemon thread
                 │
                 ▼
