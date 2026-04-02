@@ -148,9 +148,9 @@ async def lifespan(app: FastMCP):
                 )
             else:
                 ctx.confinement.clear_bounds()
-                if ctx.state_manager.state not in (
-                    ServerState.SHUTTING_DOWN,
-                    ServerState.DRIVER_MISSING,
+                if ctx.state_manager.state in (
+                    ServerState.READY,
+                    ServerState.RECOVERING,
                 ):
                     ctx.state_manager.transition(
                         ServerState.DEGRADED,
@@ -158,9 +158,12 @@ async def lifespan(app: FastMCP):
                     )
                     logger.warning("Agent display lost; transitioning to DEGRADED")
         except Exception:
-            logger.exception("Unhandled error in on_display_change; transitioning to DEGRADED")
+            logger.exception("Unhandled error in on_display_change")
             try:
-                if _ctx is not None:
+                if _ctx is not None and _ctx.state_manager.state in (
+                    ServerState.READY,
+                    ServerState.RECOVERING,
+                ):
                     _ctx.state_manager.transition(
                         ServerState.DEGRADED,
                         reason="Unexpected error in display-change handler",
@@ -178,9 +181,9 @@ async def lifespan(app: FastMCP):
                 return
 
             if event_id == WTS_SESSION_LOCK:
-                if ctx.state_manager.state not in (
-                    ServerState.SHUTTING_DOWN,
-                    ServerState.DRIVER_MISSING,
+                if ctx.state_manager.state in (
+                    ServerState.READY,
+                    ServerState.RECOVERING,
                 ):
                     ctx.state_manager.transition(ServerState.DEGRADED, reason="Session locked")
                     logger.info("Session locked; transitioning to DEGRADED")
