@@ -40,8 +40,18 @@ def _text(result) -> str:
 
 
 def _json_list(result) -> list:
-    """Parse the ToolResult text as a JSON list (for Screenshot/Snapshot)."""
-    return json.loads(result.content[0].text)
+    """Extract content items from a ToolResult as list of dicts."""
+    items = []
+    for item in result.content:
+        d = {"type": item.type}
+        if hasattr(item, "text"):
+            d["text"] = item.text
+        if hasattr(item, "data"):
+            d["data"] = item.data
+        if hasattr(item, "mimeType"):
+            d["mimeType"] = item.mimeType
+        items.append(d)
+    return items
 
 
 def _call(mcp: FastMCP, name: str, args: dict | None = None):
@@ -427,7 +437,7 @@ class TestScreenshotE2E:
         with p["capture"], p["b64"]:
             result = _call(stack.mcp, "Screenshot", {"screen": "99"})
         data = _json_list(result)
-        assert any("out of range" in d.get("data", "") for d in data)
+        assert any("out of range" in d.get("text", "") for d in data)
 
     def test_guard_blocks_in_recovering_state(self, stack):
         stack.state_mgr.transition(ServerState.RECOVERING)
@@ -523,7 +533,7 @@ class TestSnapshotE2E:
         assert len(data) >= 3
         assert any(d.get("type") == "image" for d in data)
         # The text sections should mention interactive elements
-        text_items = [d.get("data", "") for d in data if d.get("type") == "text"]
+        text_items = [d.get("text", "") for d in data if d.get("type") == "text"]
         full_text = " ".join(text_items)
         assert "Interactive" in full_text
         assert "Scrollable" in full_text
@@ -566,7 +576,7 @@ class TestSnapshotE2E:
             result = _call(stack.mcp, "Snapshot", {"screen": "agent"})
 
         data = _json_list(result)
-        full_text = " ".join(d.get("data", "") for d in data)
+        full_text = " ".join(d.get("text", "") for d in data)
         assert "error" in full_text.lower() or "no agent screen" in full_text.lower()
 
 

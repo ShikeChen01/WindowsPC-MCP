@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from mcp.types import ImageContent, TextContent
+
 from windowspc_mcp.confinement.decorators import guarded_tool, with_tool_name
 
 
@@ -25,56 +27,58 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
 
         dm = get_display_manager()
 
-        def _capture_one(mon) -> dict:
+        def _capture_one(mon):
             img = capture_region(mon.left, mon.top, mon.right, mon.bottom)
             b64 = image_to_base64(img)
-            return {
-                "type": "image",
-                "data": b64,
-                "description": (
-                    f"{mon.device_name} ({mon.width}x{mon.height} at {mon.x},{mon.y})"
-                    + (" [AGENT]" if getattr(mon, "is_agent", False) else "")
-                ),
-            }
+            desc = (
+                f"{mon.device_name} ({mon.width}x{mon.height} at {mon.x},{mon.y})"
+                + (" [AGENT]" if getattr(mon, "is_agent", False) else "")
+            )
+            return b64, desc
 
         if screen == "agent":
             agent = dm.agent_display
             if agent is None:
-                return [{"type": "text", "data": "Error: no agent screen — call CreateScreen first."}]
-            img_entry = _capture_one(agent)
-            return [img_entry, {"type": "text", "data": img_entry["description"]}]
+                return [TextContent(type="text", text="Error: no agent screen — call CreateScreen first.")]
+            b64, desc = _capture_one(agent)
+            return [
+                ImageContent(type="image", data=b64, mimeType="image/jpeg"),
+                TextContent(type="text", text=desc),
+            ]
 
         elif screen == "all":
             monitors = dm.enumerate_monitors()
             if not monitors:
-                return [{"type": "text", "data": "No monitors found."}]
+                return [TextContent(type="text", text="No monitors found.")]
             results = []
             agent = dm.agent_display
             for mon in monitors:
                 if agent is not None and mon.device_name == agent.device_name:
                     mon.is_agent = True
-                entry = _capture_one(mon)
-                results.append(entry)
-                results.append({"type": "text", "data": entry["description"]})
+                b64, desc = _capture_one(mon)
+                results.append(ImageContent(type="image", data=b64, mimeType="image/jpeg"))
+                results.append(TextContent(type="text", text=desc))
             return results
 
         else:
-            # Try numeric index
             try:
                 idx = int(screen)
             except (ValueError, TypeError):
-                return [{"type": "text", "data": f"Error: unknown screen value '{screen}'. Use 'agent', 'all', or an integer index."}]
+                return [TextContent(type="text", text=f"Error: unknown screen value '{screen}'. Use 'agent', 'all', or an integer index.")]
 
             monitors = dm.enumerate_monitors()
             if idx < 0 or idx >= len(monitors):
-                return [{"type": "text", "data": f"Error: monitor index {idx} out of range (0–{len(monitors)-1})."}]
+                return [TextContent(type="text", text=f"Error: monitor index {idx} out of range (0–{len(monitors)-1}).")]
 
             mon = monitors[idx]
             agent = dm.agent_display
             if agent is not None and mon.device_name == agent.device_name:
                 mon.is_agent = True
-            entry = _capture_one(mon)
-            return [entry, {"type": "text", "data": entry["description"]}]
+            b64, desc = _capture_one(mon)
+            return [
+                ImageContent(type="image", data=b64, mimeType="image/jpeg"),
+                TextContent(type="text", text=desc),
+            ]
 
     @mcp.tool(
         name="Snapshot",
@@ -101,17 +105,14 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
 
         dm = get_display_manager()
 
-        def _capture_one(mon) -> dict:
+        def _capture_one(mon):
             img = capture_region(mon.left, mon.top, mon.right, mon.bottom)
             b64 = image_to_base64(img)
-            return {
-                "type": "image",
-                "data": b64,
-                "description": (
-                    f"{mon.device_name} ({mon.width}x{mon.height} at {mon.x},{mon.y})"
-                    + (" [AGENT]" if getattr(mon, "is_agent", False) else "")
-                ),
-            }
+            desc = (
+                f"{mon.device_name} ({mon.width}x{mon.height} at {mon.x},{mon.y})"
+                + (" [AGENT]" if getattr(mon, "is_agent", False) else "")
+            )
+            return b64, desc
 
         def _window_list(reference_mon=None) -> str:
             """Build a text summary of visible windows, up to 30 entries."""
@@ -167,50 +168,43 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
 
         if screen == "agent":
             if agent is None:
-                return [{"type": "text", "data": "Error: no agent screen — call CreateScreen first."}]
+                return [TextContent(type="text", text="Error: no agent screen — call CreateScreen first.")]
             agent.is_agent = True
-            img_entry = _capture_one(agent)
+            b64, desc = _capture_one(agent)
             window_list = _window_list(agent)
             tree_state = _get_tree_state(agent)
             dm._latest_tree_state = tree_state
-            results = [
-                img_entry,
-                {"type": "text", "data": img_entry["description"]},
-                {
-                    "type": "text",
-                    "data": (
-                        f"Windows on agent screen:\n{window_list}\n\n"
-                        f"Interactive Elements:\n{tree_state.interactive_elements_to_string()}\n\n"
-                        f"Scrollable Elements:\n{tree_state.scrollable_elements_to_string()}"
-                    ),
-                },
+            return [
+                ImageContent(type="image", data=b64, mimeType="image/jpeg"),
+                TextContent(type="text", text=desc),
+                TextContent(type="text", text=(
+                    f"Windows on agent screen:\n{window_list}\n\n"
+                    f"Interactive Elements:\n{tree_state.interactive_elements_to_string()}\n\n"
+                    f"Scrollable Elements:\n{tree_state.scrollable_elements_to_string()}"
+                )),
             ]
-            return results
 
         elif screen == "all":
             monitors = dm.enumerate_monitors()
             if not monitors:
-                return [{"type": "text", "data": "No monitors found."}]
+                return [TextContent(type="text", text="No monitors found.")]
             results = []
             for mon in monitors:
                 if agent is not None and mon.device_name == agent.device_name:
                     mon.is_agent = True
-                entry = _capture_one(mon)
+                b64, desc = _capture_one(mon)
                 window_list = _window_list(mon)
                 tree_state = _get_tree_state(mon)
                 if agent is not None and mon.device_name == agent.device_name:
                     dm._latest_tree_state = tree_state
                 results.extend([
-                    entry,
-                    {"type": "text", "data": entry["description"]},
-                    {
-                        "type": "text",
-                        "data": (
-                            f"Windows on {mon.device_name}:\n{window_list}\n\n"
-                            f"Interactive Elements:\n{tree_state.interactive_elements_to_string()}\n\n"
-                            f"Scrollable Elements:\n{tree_state.scrollable_elements_to_string()}"
-                        ),
-                    },
+                    ImageContent(type="image", data=b64, mimeType="image/jpeg"),
+                    TextContent(type="text", text=desc),
+                    TextContent(type="text", text=(
+                        f"Windows on {mon.device_name}:\n{window_list}\n\n"
+                        f"Interactive Elements:\n{tree_state.interactive_elements_to_string()}\n\n"
+                        f"Scrollable Elements:\n{tree_state.scrollable_elements_to_string()}"
+                    )),
                 ])
             return results
 
@@ -218,30 +212,27 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
             try:
                 idx = int(screen)
             except (ValueError, TypeError):
-                return [{"type": "text", "data": f"Error: unknown screen value '{screen}'."}]
+                return [TextContent(type="text", text=f"Error: unknown screen value '{screen}'.")]
 
             monitors = dm.enumerate_monitors()
             if idx < 0 or idx >= len(monitors):
-                return [{"type": "text", "data": f"Error: monitor index {idx} out of range."}]
+                return [TextContent(type="text", text=f"Error: monitor index {idx} out of range.")]
 
             mon = monitors[idx]
             if agent is not None and mon.device_name == agent.device_name:
                 mon.is_agent = True
-            entry = _capture_one(mon)
+            b64, desc = _capture_one(mon)
             window_list = _window_list(mon)
             tree_state = _get_tree_state(mon)
             if agent is not None and mon.device_name == agent.device_name:
                 dm._latest_tree_state = tree_state
             results = [
-                entry,
-                {"type": "text", "data": entry["description"]},
-                {
-                    "type": "text",
-                    "data": (
-                        f"Windows on {mon.device_name}:\n{window_list}\n\n"
-                        f"Interactive Elements:\n{tree_state.interactive_elements_to_string()}\n\n"
-                        f"Scrollable Elements:\n{tree_state.scrollable_elements_to_string()}"
-                    ),
-                },
+                ImageContent(type="image", data=b64, mimeType="image/jpeg"),
+                TextContent(type="text", text=desc),
+                TextContent(type="text", text=(
+                    f"Windows on {mon.device_name}:\n{window_list}\n\n"
+                    f"Interactive Elements:\n{tree_state.interactive_elements_to_string()}\n\n"
+                    f"Scrollable Elements:\n{tree_state.scrollable_elements_to_string()}"
+                )),
             ]
             return results

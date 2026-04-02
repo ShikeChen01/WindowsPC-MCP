@@ -15,6 +15,10 @@ try:
 except ImportError:
     dxcam = None
 
+# dxcam.create() can hang in threadpool workers (COM threading issue).
+# Disable it for now — mss/pillow fallback works reliably for VDD captures.
+dxcam = None
+
 # Module-level camera cache
 _dxcam_camera = None
 
@@ -64,11 +68,11 @@ def capture_region(left: int, top: int, right: int, bottom: int, backend: str = 
     return ImageGrab.grab(bbox=(left, top, right, bottom), all_screens=True)
 
 
-def image_to_base64(image: Image.Image, max_width: int = 1920) -> str:
-    """Convert a PIL Image to a base64-encoded JPEG data URI."""
+def image_to_base64(image: Image.Image, max_width: int = 1920, quality: int = 85) -> str:
+    """Convert a PIL Image to raw base64-encoded JPEG (no data URI prefix)."""
     if image.width > max_width:
         ratio = max_width / image.width
         image = image.resize((max_width, int(image.height * ratio)), Image.LANCZOS)
     buf = io.BytesIO()
-    image.save(buf, format="JPEG", quality=85)
-    return f"data:image/jpeg;base64,{base64.b64encode(buf.getvalue()).decode('ascii')}"
+    image.save(buf, format="JPEG", quality=quality)
+    return base64.b64encode(buf.getvalue()).decode('ascii')

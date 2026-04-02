@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "windowspc-custom": {
-      "command": "uv",
-      "args": ["run", "windowspc-mcp", "--transport", "stdio"]
+      "command": "python",
+      "args": ["-m", "windowspc_mcp", "--transport", "stdio"]
     }
   }
 }

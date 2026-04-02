@@ -199,20 +199,22 @@ class TestCaptureRegion:
 class TestImageToBase64:
     """Tests for image_to_base64: normal, downscale, format."""
 
-    def test_returns_data_uri_prefix(self):
+    def test_returns_raw_base64(self):
         from windowspc_mcp.display.capture import image_to_base64
 
         img = Image.new("RGB", (100, 100), color=(255, 0, 0))
         result = image_to_base64(img)
-        assert result.startswith("data:image/jpeg;base64,")
+        # Should be raw base64 without data URI prefix
+        assert not result.startswith("data:")
+        decoded = base64.b64decode(result)
+        assert decoded[:2] == b"\xff\xd8"  # JPEG magic bytes
 
     def test_valid_base64_content(self):
         from windowspc_mcp.display.capture import image_to_base64
 
         img = Image.new("RGB", (100, 100), color=(0, 255, 0))
         result = image_to_base64(img)
-        b64_part = result.split(",", 1)[1]
-        decoded = base64.b64decode(b64_part)
+        decoded = base64.b64decode(result)
         # Should be valid JPEG
         assert decoded[:2] == b"\xff\xd8"  # JPEG magic bytes
 
@@ -222,8 +224,7 @@ class TestImageToBase64:
         img = Image.new("RGB", (3840, 2160), color=(0, 0, 255))
         result = image_to_base64(img, max_width=1920)
         # Decode and check the image was resized
-        b64_part = result.split(",", 1)[1]
-        decoded = base64.b64decode(b64_part)
+        decoded = base64.b64decode(result)
         out_img = Image.open(io.BytesIO(decoded))
         assert out_img.width == 1920
 
@@ -232,8 +233,7 @@ class TestImageToBase64:
 
         img = Image.new("RGB", (800, 600), color=(128, 128, 128))
         result = image_to_base64(img, max_width=1920)
-        b64_part = result.split(",", 1)[1]
-        decoded = base64.b64decode(b64_part)
+        decoded = base64.b64decode(result)
         out_img = Image.open(io.BytesIO(decoded))
         assert out_img.width == 800
 
@@ -242,7 +242,6 @@ class TestImageToBase64:
 
         img = Image.new("RGB", (2000, 1000), color=(0, 0, 0))
         result = image_to_base64(img, max_width=500)
-        b64_part = result.split(",", 1)[1]
-        decoded = base64.b64decode(b64_part)
+        decoded = base64.b64decode(result)
         out_img = Image.open(io.BytesIO(decoded))
         assert out_img.width == 500
