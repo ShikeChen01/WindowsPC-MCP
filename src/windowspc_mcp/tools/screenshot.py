@@ -23,12 +23,12 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
     @guarded_tool(get_guard)
     @with_tool_name("Screenshot")
     def screenshot(screen: str = "agent") -> list:
-        from windowspc_mcp.display.capture import capture_region, image_to_base64
+        from windowspc_mcp.display.capture import capture_region_safe, image_to_base64
 
         dm = get_display_manager()
 
         def _capture_one(mon):
-            img = capture_region(mon.left, mon.top, mon.right, mon.bottom)
+            img = capture_region_safe(mon.left, mon.top, mon.right, mon.bottom)
             b64 = image_to_base64(img)
             desc = (
                 f"{mon.device_name} ({mon.width}x{mon.height} at {mon.x},{mon.y})"
@@ -92,7 +92,7 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
     @guarded_tool(get_guard)
     @with_tool_name("Snapshot")
     def snapshot(screen: str = "agent") -> list:
-        from windowspc_mcp.display.capture import capture_region, image_to_base64
+        from windowspc_mcp.display.capture import capture_region_safe, image_to_base64
         from windowspc_mcp.uia.controls import (
             enumerate_windows,
             get_window_rect,
@@ -106,7 +106,7 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
         dm = get_display_manager()
 
         def _capture_one(mon):
-            img = capture_region(mon.left, mon.top, mon.right, mon.bottom)
+            img = capture_region_safe(mon.left, mon.top, mon.right, mon.bottom)
             b64 = image_to_base64(img)
             desc = (
                 f"{mon.device_name} ({mon.width}x{mon.height} at {mon.x},{mon.y})"

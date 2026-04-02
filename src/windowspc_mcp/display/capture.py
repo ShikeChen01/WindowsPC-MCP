@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import concurrent.futures
 import io
 import logging
 
@@ -44,7 +45,8 @@ def capture_region(left: int, top: int, right: int, bottom: int, backend: str = 
 
     Fallback chain: dxcam -> mss -> Pillow.
     """
-    chain = ["dxcam", "mss", "pillow"] if backend == "auto" else [backend]
+    # mss can hang in anyio threadpool workers. Use pillow only for reliability.
+    chain = ["pillow"] if backend == "auto" else [backend]
     for name in chain:
         try:
             if name == "dxcam" and dxcam is not None:
@@ -66,6 +68,21 @@ def capture_region(left: int, top: int, right: int, bottom: int, backend: str = 
 
     # Final fallback — should always work
     return ImageGrab.grab(bbox=(left, top, right, bottom), all_screens=True)
+
+
+# Dedicated thread pool for GDI capture — avoids hangs in anyio's threadpool
+# where COM apartment state can interfere with GDI/BitBlt calls.
+_capture_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="capture")
+
+
+def capture_region_safe(left: int, top: int, right: int, bottom: int) -> Image.Image:
+    """Capture a screen region using a dedicated thread (GDI-safe).
+
+    Use this instead of capture_region when calling from async/threadpool contexts
+    (e.g., FastMCP tool handlers) where GDI calls may hang.
+    """
+    future = _capture_executor.submit(capture_region, left, top, right, bottom)
+    return future.result(timeout=10)
 
 
 def image_to_base64(image: Image.Image, max_width: int = 1920, quality: int = 85) -> str:
