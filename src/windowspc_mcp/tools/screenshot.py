@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from mcp.types import ImageContent, TextContent
 
 from windowspc_mcp.confinement.decorators import guarded_tool, with_tool_name
@@ -22,13 +24,15 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
     )
     @guarded_tool(get_guard)
     @with_tool_name("Screenshot")
-    def screenshot(screen: str = "agent") -> list:
-        from windowspc_mcp.display.capture import capture_region_safe, image_to_base64
+    async def screenshot(screen: str = "agent") -> list:
+        from windowspc_mcp.display.capture import capture_region, image_to_base64
 
         dm = get_display_manager()
 
-        def _capture_one(mon):
-            img = capture_region_safe(mon.left, mon.top, mon.right, mon.bottom)
+        async def _capture_one(mon):
+            img = await asyncio.to_thread(
+                capture_region, mon.left, mon.top, mon.right, mon.bottom,
+            )
             b64 = image_to_base64(img)
             desc = (
                 f"{mon.device_name} ({mon.width}x{mon.height} at {mon.x},{mon.y})"
@@ -40,7 +44,7 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
             agent = dm.agent_display
             if agent is None:
                 return [TextContent(type="text", text="Error: no agent screen — call CreateScreen first.")]
-            b64, desc = _capture_one(agent)
+            b64, desc = await _capture_one(agent)
             return [
                 ImageContent(type="image", data=b64, mimeType="image/jpeg"),
                 TextContent(type="text", text=desc),
@@ -55,7 +59,7 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
             for mon in monitors:
                 if agent is not None and mon.device_name == agent.device_name:
                     mon.is_agent = True
-                b64, desc = _capture_one(mon)
+                b64, desc = await _capture_one(mon)
                 results.append(ImageContent(type="image", data=b64, mimeType="image/jpeg"))
                 results.append(TextContent(type="text", text=desc))
             return results
@@ -74,7 +78,7 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
             agent = dm.agent_display
             if agent is not None and mon.device_name == agent.device_name:
                 mon.is_agent = True
-            b64, desc = _capture_one(mon)
+            b64, desc = await _capture_one(mon)
             return [
                 ImageContent(type="image", data=b64, mimeType="image/jpeg"),
                 TextContent(type="text", text=desc),
@@ -91,8 +95,8 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
     )
     @guarded_tool(get_guard)
     @with_tool_name("Snapshot")
-    def snapshot(screen: str = "agent") -> list:
-        from windowspc_mcp.display.capture import capture_region_safe, image_to_base64
+    async def snapshot(screen: str = "agent") -> list:
+        from windowspc_mcp.display.capture import capture_region, image_to_base64
         from windowspc_mcp.uia.controls import (
             enumerate_windows,
             get_window_rect,
@@ -105,8 +109,10 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
 
         dm = get_display_manager()
 
-        def _capture_one(mon):
-            img = capture_region_safe(mon.left, mon.top, mon.right, mon.bottom)
+        async def _capture_one(mon):
+            img = await asyncio.to_thread(
+                capture_region, mon.left, mon.top, mon.right, mon.bottom,
+            )
             b64 = image_to_base64(img)
             desc = (
                 f"{mon.device_name} ({mon.width}x{mon.height} at {mon.x},{mon.y})"
@@ -170,7 +176,7 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
             if agent is None:
                 return [TextContent(type="text", text="Error: no agent screen — call CreateScreen first.")]
             agent.is_agent = True
-            b64, desc = _capture_one(agent)
+            b64, desc = await _capture_one(agent)
             window_list = _window_list(agent)
             tree_state = _get_tree_state(agent)
             dm._latest_tree_state = tree_state
@@ -192,7 +198,7 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
             for mon in monitors:
                 if agent is not None and mon.device_name == agent.device_name:
                     mon.is_agent = True
-                b64, desc = _capture_one(mon)
+                b64, desc = await _capture_one(mon)
                 window_list = _window_list(mon)
                 tree_state = _get_tree_state(mon)
                 if agent is not None and mon.device_name == agent.device_name:
@@ -221,7 +227,7 @@ def register(mcp, *, get_display_manager, get_confinement, get_state_manager=Non
             mon = monitors[idx]
             if agent is not None and mon.device_name == agent.device_name:
                 mon.is_agent = True
-            b64, desc = _capture_one(mon)
+            b64, desc = await _capture_one(mon)
             window_list = _window_list(mon)
             tree_state = _get_tree_state(mon)
             if agent is not None and mon.device_name == agent.device_name:

@@ -150,18 +150,26 @@ class DisplayManager:
         self._display_index = self._vdd.add_display()
         log.debug("VDD add_display() -> index %d", self._display_index)
 
-        # Wait for Windows to enumerate the new monitor
-        time.sleep(1.0)
+        # Poll for the new monitor (avoids blocking anyio threadpool with time.sleep)
+        new_display = None
+        for _ in range(20):  # up to 2s
+            time.sleep(0.1)
+            new_display = self._find_new_display(before)
+            if new_display is not None:
+                break
 
-        new_display = self._find_new_display(before)
         if new_display is None:
             raise RuntimeError("New virtual display did not appear after add_display()")
 
         # Set resolution
         self._set_resolution(new_display.device_name, width, height)
 
-        # Wait for resolution change to settle
-        time.sleep(0.5)
+        # Poll for resolution change to settle
+        for _ in range(10):  # up to 1s
+            time.sleep(0.1)
+            final_check = self._find_display_by_name(new_display.device_name)
+            if final_check and final_check.width == width and final_check.height == height:
+                break
 
         # Re-enumerate to get final bounds
         final = self._find_display_by_name(new_display.device_name)

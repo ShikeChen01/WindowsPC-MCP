@@ -264,8 +264,8 @@ class TestCreateDisplay:
             "windowspc_mcp.display.driver": driver,
             "windowspc_mcp.display.identity": identity,
         }):
-            # _find_display_by_name returns None for stale name, then the new display
-            with patch.object(dm, "_find_display_by_name", side_effect=[None, new_mon]):
+            # _find_display_by_name returns None for stale name, then new_mon repeatedly
+            with patch.object(dm, "_find_display_by_name", side_effect=[None] + [new_mon] * 20):
                 with patch.object(dm, "enumerate_monitors", return_value=[]):
                     with patch.object(dm, "_find_new_display", return_value=new_mon):
                         with patch.object(dm, "_set_resolution"):
