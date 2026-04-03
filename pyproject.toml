@@ -1,6 +1,6 @@
 [project]
 name = "windowspc-mcp"
-version = "0.1.0"
+version = "0.5.0"
 description = "Confined Windows MCP server with virtual display isolation for AI agents."
 requires-python = ">=3.12"
 dependencies = [

@@ -11,13 +11,9 @@ from PIL import Image, ImageGrab
 
 logger = logging.getLogger(__name__)
 
-try:
-    import dxcam
-except ImportError:
-    dxcam = None
-
-# dxcam.create() can hang in threadpool workers (COM threading issue).
-# Disable it for now — mss/pillow fallback works reliably for VDD captures.
+# dxcam is disabled — its COM/DXGI initialization deadlocks the anyio event
+# loop when imported lazily after VDD display creation.  Keep it as a lazy
+# import inside _capture_dxcam() so the module can load safely.
 dxcam = None
 
 # Module-level camera cache
@@ -30,8 +26,16 @@ except ImportError:
 
 
 def _capture_dxcam(left: int, top: int, right: int, bottom: int) -> Image.Image:
-    """Capture using cached dxcam camera."""
-    global _dxcam_camera
+    """Capture using cached dxcam camera.
+
+    dxcam is imported lazily here to avoid COM/DXGI initialization at
+    module load time, which deadlocks the anyio event loop when the
+    module is first imported inside an async handler after VDD creation.
+    """
+    global _dxcam_camera, dxcam
+    if dxcam is None:
+        import dxcam as _dxcam
+        dxcam = _dxcam
     if _dxcam_camera is None:
         _dxcam_camera = dxcam.create()
     frame = _dxcam_camera.grab(region=(left, top, right, bottom))
